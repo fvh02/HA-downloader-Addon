@@ -1,0 +1,291 @@
+"""Downloader add-on: hosts a small web UI and downloads queued files one after another."""
+
+import asyncio
+import json
+import logging
+import os
+import re
+import time
+import uuid
+from pathlib import Path
+from urllib.parse import unquote, urlparse
+
+from aiohttp import ClientSession, ClientTimeout, web
+
+OPTIONS_FILE = Path("/data/options.json")
+STATE_FILE = Path(os.environ.get("DOWNLOADER_STATE", "/data/queue.json"))
+STATIC_DIR = Path(__file__).parent / "static"
+PORT = int(os.environ.get("DOWNLOADER_PORT", "8099"))
+CHUNK_SIZE = 256 * 1024
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("downloader")
+
+
+def load_options() -> dict:
+    try:
+        return json.loads(OPTIONS_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+DOWNLOAD_DIR = Path(
+    os.environ.get("DOWNLOADER_DIR") or load_options().get("download_dir") or "/media/downloads"
+)
+
+
+def sanitize_filename(name: str) -> str:
+    name = unquote(name).replace("\\", "/").split("/")[-1]
+    name = re.sub(r'[\x00-\x1f<>:"|?*]', "_", name).strip(" .")
+    return name[:200] or "download"
+
+
+def name_from_url(url: str) -> str:
+    return sanitize_filename(urlparse(url).path.rstrip("/").split("/")[-1] or urlparse(url).netloc)
+
+
+def name_from_headers(headers) -> str | None:
+    disposition = headers.get("Content-Disposition", "")
+    match = re.search(r"filename\*\s*=\s*[^']*'[^']*'([^;]+)", disposition, re.I)
+    if match:
+        return sanitize_filename(match.group(1).strip().strip('"'))
+    match = re.search(r'filename\s*=\s*"?([^";]+)"?', disposition, re.I)
+    if match:
+        return sanitize_filename(match.group(1).strip())
+    return None
+
+
+def unique_path(directory: Path, name: str) -> Path:
+    target = directory / name
+    stem, suffix = target.stem, target.suffix
+    counter = 1
+    while target.exists() or target.with_name(target.name + ".part").exists():
+        target = directory / f"{stem} ({counter}){suffix}"
+        counter += 1
+    return target
+
+
+class DownloadQueue:
+    def __init__(self) -> None:
+        self.items: list[dict] = []
+        self.wakeup = asyncio.Event()
+        self.current_id: str | None = None
+        self.current_task: asyncio.Task | None = None
+        self.session: ClientSession | None = None
+
+    # -- persistence -------------------------------------------------------
+    def load(self) -> None:
+        try:
+            self.items = json.loads(STATE_FILE.read_text())
+        except (OSError, ValueError):
+            self.items = []
+        for item in self.items:
+            # A download interrupted by a restart starts over.
+            if item["status"] == "downloading":
+                item.update(status="queued", downloaded=0, speed=0)
+
+    def save(self) -> None:
+        try:
+            STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            tmp = STATE_FILE.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self.items))
+            tmp.replace(STATE_FILE)
+        except OSError as err:
+            log.warning("Konnte Warteliste nicht speichern: %s", err)
+
+    # -- queue operations --------------------------------------------------
+    def get(self, item_id: str) -> dict | None:
+        return next((i for i in self.items if i["id"] == item_id), None)
+
+    def add(self, url: str) -> dict:
+        item = {
+            "id": uuid.uuid4().hex,
+            "url": url,
+            "name": name_from_url(url),
+            "size": None,
+            "downloaded": 0,
+            "speed": 0,
+            "status": "queued",
+            "error": None,
+            "added": time.time(),
+        }
+        self.items.append(item)
+        self.save()
+        asyncio.create_task(self.probe(item))
+        self.wakeup.set()
+        return item
+
+    def remove(self, item_id: str) -> bool:
+        item = self.get(item_id)
+        if not item:
+            return False
+        if item_id == self.current_id and self.current_task:
+            self.current_task.cancel()
+        self.items.remove(item)
+        self.save()
+        return True
+
+    def clear_finished(self) -> None:
+        self.items = [i for i in self.items if i["status"] not in ("done", "error")]
+        self.save()
+
+    # -- networking --------------------------------------------------------
+    async def probe(self, item: dict) -> None:
+        """Fetch file name and size without downloading the file."""
+        try:
+            async with self.session.head(item["url"], allow_redirects=True) as resp:
+                if resp.status >= 400 or resp.content_length is None:
+                    raise ValueError("HEAD unbrauchbar")
+                headers, length = resp.headers, resp.content_length
+        except Exception:  # noqa: BLE001 - fall back to a GET that only reads headers
+            try:
+                async with self.session.get(item["url"], allow_redirects=True) as resp:
+                    if resp.status >= 400:
+                        return
+                    headers, length = resp.headers, resp.content_length
+            except Exception:  # noqa: BLE001
+                return
+        if item["status"] != "queued":
+            return
+        name = name_from_headers(headers)
+        if name:
+            item["name"] = name
+        if length:
+            item["size"] = length
+        self.save()
+
+    async def download(self, item: dict) -> None:
+        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        part = None
+        try:
+            async with self.session.get(item["url"], allow_redirects=True) as resp:
+                resp.raise_for_status()
+                name = name_from_headers(resp.headers) or item["name"]
+                target = unique_path(DOWNLOAD_DIR, name)
+                part = target.with_name(target.name + ".part")
+                item.update(name=target.name, size=resp.content_length or item["size"])
+                last_time, last_bytes = time.monotonic(), 0
+                with part.open("wb") as fh:
+                    async for chunk in resp.content.iter_chunked(CHUNK_SIZE):
+                        await asyncio.to_thread(fh.write, chunk)
+                        item["downloaded"] += len(chunk)
+                        now = time.monotonic()
+                        if now - last_time >= 1:
+                            item["speed"] = int((item["downloaded"] - last_bytes) / (now - last_time))
+                            last_time, last_bytes = now, item["downloaded"]
+            part.replace(target)
+            item.update(status="done", speed=0, size=item["size"] or item["downloaded"])
+            log.info("Fertig: %s", target)
+        except asyncio.CancelledError:
+            if part:
+                part.unlink(missing_ok=True)
+            log.info("Abgebrochen: %s", item["name"])
+            raise
+        except Exception as err:  # noqa: BLE001
+            if part:
+                part.unlink(missing_ok=True)
+            item.update(status="error", error=str(err) or err.__class__.__name__, speed=0)
+            log.warning("Fehler bei %s: %s", item["url"], err)
+
+    async def worker(self) -> None:
+        while True:
+            item = next((i for i in self.items if i["status"] == "queued"), None)
+            if not item:
+                self.wakeup.clear()
+                await self.wakeup.wait()
+                continue
+            item.update(status="downloading", downloaded=0, speed=0, error=None)
+            self.save()
+            self.current_id = item["id"]
+            self.current_task = asyncio.create_task(self.download(item))
+            try:
+                await self.current_task
+            except asyncio.CancelledError:
+                if not self.current_task.cancelled():
+                    raise  # the worker itself is shutting down
+            finally:
+                self.current_id = self.current_task = None
+                self.save()
+
+
+# -- HTTP API --------------------------------------------------------------
+routes = web.RouteTableDef()
+
+
+def public(item: dict) -> dict:
+    return {k: item[k] for k in ("id", "url", "name", "size", "downloaded", "speed", "status", "error")}
+
+
+@routes.get("/")
+async def index(_: web.Request) -> web.FileResponse:
+    return web.FileResponse(STATIC_DIR / "index.html")
+
+
+@routes.get("/api/items")
+async def list_items(request: web.Request) -> web.Response:
+    queue: DownloadQueue = request.app["queue"]
+    return web.json_response({"items": [public(i) for i in queue.items], "directory": str(DOWNLOAD_DIR)})
+
+
+@routes.post("/api/items")
+async def add_items(request: web.Request) -> web.Response:
+    queue: DownloadQueue = request.app["queue"]
+    try:
+        data = await request.json()
+    except ValueError:
+        raise web.HTTPBadRequest(text="Ungültige Anfrage")
+    urls = [u for u in re.split(r"\s+", str(data.get("url", ""))) if u]
+    if not urls:
+        raise web.HTTPBadRequest(text="Bitte einen Link eingeben")
+    invalid = [u for u in urls if urlparse(u).scheme not in ("http", "https") or not urlparse(u).netloc]
+    if invalid:
+        raise web.HTTPBadRequest(text=f"Ungültiger Link: {invalid[0]}")
+    added = [public(queue.add(u)) for u in urls]
+    return web.json_response({"items": added}, status=201)
+
+
+@routes.delete("/api/items/{item_id}")
+async def delete_item(request: web.Request) -> web.Response:
+    queue: DownloadQueue = request.app["queue"]
+    if not queue.remove(request.match_info["item_id"]):
+        raise web.HTTPNotFound()
+    return web.Response(status=204)
+
+
+@routes.post("/api/clear")
+async def clear(request: web.Request) -> web.Response:
+    request.app["queue"].clear_finished()
+    return web.Response(status=204)
+
+
+async def on_startup(app: web.Application) -> None:
+    queue: DownloadQueue = app["queue"]
+    queue.session = ClientSession(
+        timeout=ClientTimeout(total=None, sock_connect=30, sock_read=120),
+        headers={"User-Agent": "Mozilla/5.0 (HomeAssistant Downloader Add-on)"},
+    )
+    app["worker"] = asyncio.create_task(queue.worker())
+    log.info("Downloads werden gespeichert in %s", DOWNLOAD_DIR)
+
+
+async def on_cleanup(app: web.Application) -> None:
+    app["worker"].cancel()
+    queue: DownloadQueue = app["queue"]
+    if queue.current_task:
+        queue.current_task.cancel()
+    await queue.session.close()
+
+
+def main() -> None:
+    queue = DownloadQueue()
+    queue.load()
+    app = web.Application()
+    app["queue"] = queue
+    app.add_routes(routes)
+    app.on_startup.append(on_startup)
+    app.on_cleanup.append(on_cleanup)
+    web.run_app(app, host="0.0.0.0", port=PORT, print=None, access_log=None)
+
+
+if __name__ == "__main__":
+    main()
