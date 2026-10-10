@@ -8,5 +8,14 @@ configuration:
   download_dir:
     name: Download-Ordner
     description: Ordner, in dem die Dateien gespeichert werden (z. B. /media/downloads oder /share/downloads).
+  api_token:
+    name: API-Token
+    description: Schützt den direkten Zugriff über Port 8099 (z. B. für deinen Assistenten). Leer lassen, wenn du nur die Seitenleiste nutzt.
+  inkbox_api_key:
+    name: Inkbox API-Key
+    description: API-Key deiner Inkbox-Identität. Wird für iMessage-Benachrichtigungen benötigt.
+  imessage_to:
+    name: iMessage-Empfänger
+    description: Deine Handynummer im Format +491701234567. Dorthin gehen die Benachrichtigungen, wenn ein Download fertig ist oder fehlschlägt.
 network:
   8099/tcp: Weboberfläche (optional, sonst über die Seitenleiste erreichbar)

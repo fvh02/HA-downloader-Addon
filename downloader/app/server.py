@@ -1,6 +1,7 @@
 """Downloader add-on: hosts a small web UI and downloads queued files one after another."""
 
 import asyncio
+import hmac
 import json
 import logging
 import os
@@ -38,6 +39,51 @@ if DESIGN not in PAGES:
     DESIGN = "modern"
 if THEME not in ("dark", "light"):
     THEME = "dark"
+
+# Access from outside Home Assistant (port 8099) is protected by this token when set.
+API_TOKEN = os.environ.get("DOWNLOADER_API_TOKEN") or OPTIONS.get("api_token") or ""
+INGRESS_IP = "172.30.32.2"
+
+# Optional iMessage notifications through the Inkbox API.
+INKBOX_URL = os.environ.get("DOWNLOADER_INKBOX_URL", "https://inkbox.ai/api/v1/imessage/messages")
+INKBOX_API_KEY = os.environ.get("DOWNLOADER_INKBOX_API_KEY") or OPTIONS.get("inkbox_api_key") or ""
+IMESSAGE_TO = os.environ.get("DOWNLOADER_IMESSAGE_TO") or OPTIONS.get("imessage_to") or ""
+
+
+def format_size(size: int | None) -> str:
+    if size is None:
+        return "unbekannte Größe"
+    value = float(size)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if value < 1024 or unit == "TB":
+            break
+        value /= 1024
+    text = f"{int(value)} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+    return text.replace(".", ",")
+
+
+def status_summary(items: list[dict]) -> str:
+    """Short German status text, e.g. for a chat reply."""
+    active = next((i for i in items if i["status"] == "downloading"), None)
+    queued = [i for i in items if i["status"] == "queued"]
+    done = [i for i in items if i["status"] == "done"]
+    failed = [i for i in items if i["status"] == "error"]
+    lines = []
+    if active:
+        progress = format_size(active["downloaded"])
+        if active["size"]:
+            percent = int(active["downloaded"] * 100 / active["size"])
+            progress = f"{percent} % von {format_size(active['size'])}"
+        speed = f", {format_size(active['speed'])}/s" if active["speed"] else ""
+        lines.append(f"⬇️ {active['name']}: {progress}{speed}")
+    if queued:
+        names = ", ".join(i["name"] for i in queued[:5]) + (" …" if len(queued) > 5 else "")
+        lines.append(f"⏳ {len(queued)} in der Warteschlange: {names}")
+    if done:
+        lines.append(f"✅ {len(done)} fertig")
+    if failed:
+        lines.append(f"❌ {len(failed)} fehlgeschlagen: " + ", ".join(i["name"] for i in failed[:5]))
+    return "\n".join(lines) or "Keine Downloads in der Warteliste."
 
 
 def sanitize_filename(name: str) -> str:
@@ -182,6 +228,7 @@ class DownloadQueue:
             part.replace(target)
             item.update(status="done", speed=0, size=item["size"] or item["downloaded"])
             log.info("Fertig: %s", target)
+            self.notify(f"✅ Download fertig: {item['name']} ({format_size(item['size'])})")
         except asyncio.CancelledError:
             if part:
                 part.unlink(missing_ok=True)
@@ -192,6 +239,24 @@ class DownloadQueue:
                 part.unlink(missing_ok=True)
             item.update(status="error", error=str(err) or err.__class__.__name__, speed=0)
             log.warning("Fehler bei %s: %s", item["url"], err)
+            self.notify(f"❌ Download fehlgeschlagen: {item['name']}\n{item['error']}")
+
+    def notify(self, text: str) -> None:
+        if INKBOX_API_KEY and IMESSAGE_TO:
+            asyncio.create_task(self.send_imessage(text))
+
+    async def send_imessage(self, text: str) -> None:
+        try:
+            async with self.session.post(
+                INKBOX_URL,
+                json={"to": IMESSAGE_TO, "text": text},
+                headers={"X-API-Key": INKBOX_API_KEY},
+                timeout=ClientTimeout(total=30),
+            ) as resp:
+                if resp.status >= 400:
+                    log.warning("iMessage-Benachrichtigung fehlgeschlagen (%s): %s", resp.status, await resp.text())
+        except Exception as err:  # noqa: BLE001
+            log.warning("iMessage-Benachrichtigung fehlgeschlagen: %s", err)
 
     async def worker(self) -> None:
         while True:
@@ -235,6 +300,21 @@ async def list_items(request: web.Request) -> web.Response:
     return web.json_response({"items": [public(i) for i in queue.items], "directory": str(DOWNLOAD_DIR)})
 
 
+@routes.get("/api/status")
+async def status(request: web.Request) -> web.Response:
+    items = request.app["queue"].items
+    count = lambda status: sum(1 for i in items if i["status"] == status)  # noqa: E731
+    active = next((i for i in items if i["status"] == "downloading"), None)
+    return web.json_response({
+        "summary": status_summary(items),
+        "active": public(active) if active else None,
+        "queued": count("queued"),
+        "done": count("done"),
+        "failed": count("error"),
+        "items": [public(i) for i in items],
+    })
+
+
 @routes.post("/api/items")
 async def add_items(request: web.Request) -> web.Response:
     queue: DownloadQueue = request.app["queue"]
@@ -266,6 +346,17 @@ async def clear(request: web.Request) -> web.Response:
     return web.Response(status=204)
 
 
+@web.middleware
+async def require_token(request: web.Request, handler):
+    """Requests via Home Assistant (Ingress) are trusted; direct ones need the API token."""
+    if API_TOKEN and request.remote != INGRESS_IP and request.path.startswith("/api/"):
+        auth = request.headers.get("Authorization", "")
+        token = auth[7:].strip() if auth.lower().startswith("bearer ") else request.query.get("token", "")
+        if not hmac.compare_digest(token.encode(), API_TOKEN.encode()):
+            raise web.HTTPUnauthorized(text="Ungültiger oder fehlender API-Token")
+    return await handler(request)
+
+
 async def on_startup(app: web.Application) -> None:
     queue: DownloadQueue = app["queue"]
     queue.session = ClientSession(
@@ -274,6 +365,9 @@ async def on_startup(app: web.Application) -> None:
     )
     app["worker"] = asyncio.create_task(queue.worker())
     log.info("Downloads werden gespeichert in %s (Design: %s, %s)", DOWNLOAD_DIR, DESIGN, THEME)
+    log.info("Externer API-Zugriff: %s", "mit Token geschützt" if API_TOKEN else "ohne Token (nur Ingress empfohlen)")
+    if INKBOX_API_KEY and IMESSAGE_TO:
+        log.info("iMessage-Benachrichtigungen an %s aktiv", IMESSAGE_TO)
 
 
 async def on_cleanup(app: web.Application) -> None:
@@ -287,7 +381,7 @@ async def on_cleanup(app: web.Application) -> None:
 def main() -> None:
     queue = DownloadQueue()
     queue.load()
-    app = web.Application()
+    app = web.Application(middlewares=[require_token])
     app["queue"] = queue
     app.add_routes(routes)
     app.on_startup.append(on_startup)

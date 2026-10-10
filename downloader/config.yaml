@@ -1,5 +1,5 @@
 name: Downloader
-version: "1.1.0"
+version: "1.2.0"
 slug: downloader
 description: Warteschlange für Datei-Downloads mit moderner Weboberfläche
 url: https://github.com/fvh02/HA-downloader-Addon
@@ -23,7 +23,13 @@ options:
   design: modern
   theme: dark
   download_dir: /media/downloads
+  api_token: ""
+  inkbox_api_key: ""
+  imessage_to: ""
 schema:
   design: list(modern|terminal)
   theme: list(dark|light)
   download_dir: str
+  api_token: password?
+  inkbox_api_key: password?
+  imessage_to: match(^(\+[1-9][0-9]{6,14})?$)?

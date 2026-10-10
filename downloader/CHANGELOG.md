@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0
+
+- iMessage-Benachrichtigungen über Inkbox, wenn ein Download fertig ist oder fehlschlägt
+  (Optionen `inkbox_api_key`, `imessage_to`).
+- Neuer Endpunkt `/api/status` mit kurzer Statuszusammenfassung für Assistenten.
+- Option `api_token` schützt den direkten Zugriff über Port 8099.
+
 ## 1.1.0
 
 - Neues Design „Terminal“: Eingabezeile unten links, Warteliste darüber,
