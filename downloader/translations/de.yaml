@@ -1,0 +1,12 @@
+configuration:
+  design:
+    name: Design
+    description: Aussehen der Weboberfläche – modern oder klassischer Terminal-Look.
+  theme:
+    name: Farbschema
+    description: Dunkler (dark) oder heller (light) Modus.
+  download_dir:
+    name: Download-Ordner
+    description: Ordner, in dem die Dateien gespeichert werden (z. B. /media/downloads oder /share/downloads).
+network:
+  8099/tcp: Weboberfläche (optional, sonst über die Seitenleiste erreichbar)

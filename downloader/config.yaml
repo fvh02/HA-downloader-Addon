@@ -1,5 +1,5 @@
 name: Downloader
-version: "1.0.0"
+version: "1.1.0"
 slug: downloader
 description: Warteschlange für Datei-Downloads mit moderner Weboberfläche
 url: https://github.com/fvh02/HA-downloader-Addon
@@ -20,6 +20,10 @@ map:
   - media:rw
   - share:rw
 options:
+  design: modern
+  theme: dark
   download_dir: /media/downloads
 schema:
+  design: list(modern|terminal)
+  theme: list(dark|light)
   download_dir: str

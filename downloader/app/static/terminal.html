@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Downloader</title>
+  <style>
+    :root {
+      --bg: #f3efdf;
+      --text: #1f5122;
+      --dim: #7c8a6e;
+      --name-hover: #0055b8;
+      --size: #b04a00;
+      --ok: #1f7a2e;
+      --err: #c0262d;
+      --select: rgba(31, 81, 34, .12);
+      --glow: none;
+      --scan: transparent;
+    }
+    :root[data-theme="dark"] {
+      --bg: #0a0e0a;
+      --text: #3cff6e;
+      --dim: #2f8f48;
+      --name-hover: #3de8ff;
+      --size: #ffc53d;
+      --ok: #3cff6e;
+      --err: #ff5f5f;
+      --select: rgba(60, 255, 110, .1);
+      --glow: 0 0 6px rgba(60, 255, 110, .45);
+      --scan: rgba(0, 0, 0, .22);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, "Cascadia Mono", "JetBrains Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+      font-size: 15px;
+      line-height: 1.55;
+      text-shadow: var(--glow);
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+    /* subtle CRT scanlines */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(to bottom, transparent 0 2px, var(--scan) 2px 3px);
+    }
+    ::selection { background: var(--text); color: var(--bg); }
+    button {
+      font: inherit;
+      color: inherit;
+      text-shadow: inherit;
+      background: none;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+    }
+    .banner { color: var(--dim); white-space: pre; overflow: hidden; }
+    .banner b { color: var(--text); font-weight: 700; }
+
+    /* terminal block pinned to the bottom-left corner */
+    .term {
+      margin-top: auto;
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .queue { display: none; min-height: 0; flex-direction: column; }
+    .queue.open { display: flex; }
+    .queue-head { color: var(--dim); display: flex; gap: 2ch; flex-wrap: wrap; }
+    .queue-head button { color: var(--dim); }
+    .queue-head button:hover { color: var(--text); }
+    ul {
+      list-style: none;
+      margin: 0 0 4px;
+      padding: 0;
+      overflow-y: auto;
+      max-height: calc(100vh - 220px);
+    }
+    li {
+      display: grid;
+      grid-template-columns: 6ch 1fr auto 28px;
+      column-gap: 1.5ch;
+      align-items: center;
+      padding: 1px 0;
+    }
+    li:hover { background: var(--select); }
+    .tag { color: var(--dim); }
+    li.downloading .tag { color: var(--text); }
+    li.done .tag { color: var(--ok); }
+    li.error .tag { color: var(--err); }
+    .name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    li:hover .name { color: var(--name-hover); }
+    .size { color: var(--size); white-space: nowrap; text-align: right; }
+    .detail:empty { display: none; }
+    .detail {
+      grid-column: 2 / 4;
+      color: var(--dim);
+      white-space: pre;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    li.downloading .detail { color: var(--text); }
+    li.error .detail { color: var(--err); }
+    .trash {
+      grid-column: 4;
+      grid-row: 1;
+      width: 28px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      color: var(--dim);
+    }
+    .trash:hover { color: var(--err); }
+    .trash svg { width: 16px; height: 16px; shape-rendering: crispEdges; }
+
+    .message { color: var(--err); min-height: 0; }
+    .message:empty { display: none; }
+
+    form { display: flex; align-items: center; gap: 1ch; }
+    .prompt {
+      flex: 0 1 auto;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .prompt .user { color: var(--ok); font-weight: 700; }
+    .prompt .path { color: var(--name-hover); font-weight: 700; }
+    .field { flex: 1 0 14ch; display: flex; align-items: center; }
+    input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      font: inherit;
+      text-shadow: inherit;
+      caret-color: transparent;
+      padding: 0;
+    }
+    input::placeholder { color: var(--dim); opacity: .7; }
+    .cursor {
+      display: inline-block;
+      width: 1ch;
+      height: 1.15em;
+      background: var(--text);
+      box-shadow: var(--glow);
+      animation: blink 1s steps(1) infinite;
+    }
+    input:not(:focus) + .cursor { opacity: .35; animation: none; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .add { flex: none; color: var(--bg); background: var(--text); padding: 0 1ch; text-shadow: none; }
+    .add:hover { background: var(--name-hover); }
+    .add:disabled { opacity: .5; cursor: default; }
+
+    @media (max-width: 560px) {
+      body { font-size: 13px; }
+      li { grid-template-columns: 6ch 1fr auto 24px; column-gap: 1ch; }
+      .banner { display: none; }
+      .prompt .userhost, .prompt .colon { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="banner" id="banner">Downloader add-on · <b>tty1</b>
+Tippe einen Link ein und drücke Enter. Mehrere Links durch Leerzeichen trennen.</div>
+
+  <div class="term">
+    <section class="queue" id="queue" aria-live="polite">
+      <div class="queue-head">
+        <span id="count">$ ls queue/</span>
+        <button id="clear" type="button" hidden>[erledigte entfernen]</button>
+      </div>
+      <ul id="list"></ul>
+    </section>
+
+    <div class="message" id="message"></div>
+
+    <form id="form" autocomplete="off">
+      <span class="prompt"><span class="user userhost">root@homeassistant</span><span class="colon">:</span><span class="path">~/downloads</span>$ wget</span>
+      <span class="field">
+        <input id="url" type="text" spellcheck="false" placeholder="https://..." aria-label="Download-Link" autofocus>
+        <span class="cursor" aria-hidden="true"></span>
+      </span>
+      <button class="add" id="add" type="submit">HINZUFÜGEN</button>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById("form");
+    const input = document.getElementById("url");
+    const addBtn = document.getElementById("add");
+    const queue = document.getElementById("queue");
+    const list = document.getElementById("list");
+    const count = document.getElementById("count");
+    const clearBtn = document.getElementById("clear");
+    const message = document.getElementById("message");
+    const pathEl = document.querySelector(".prompt .path");
+
+    // 16x16 pixel-art trash can: handle, lid, body with two slats
+    const TRASH_PIXELS = [
+      [6, 0, 4, 1], [5, 1, 1, 1], [10, 1, 1, 1],
+      [1, 2, 14, 2],
+      [3, 5, 1, 9], [12, 5, 1, 9], [4, 4, 8, 1],
+      [6, 6, 1, 6], [9, 6, 1, 6],
+      [4, 14, 8, 1],
+    ];
+    const TRASH = '<svg viewBox="0 0 16 16" fill="currentColor">' +
+      TRASH_PIXELS.map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}"/>`).join("") + "</svg>";
+
+    const TAGS = { queued: "[WAIT]", downloading: "[ DL ]", done: "[ OK ]", error: "[FAIL]" };
+
+    function formatSize(bytes) {
+      if (bytes == null) return "?";
+      const units = ["B", "K", "M", "G", "T"];
+      let i = 0, v = bytes;
+      while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+      return (i === 0 ? String(v) : v.toFixed(1)) + units[i];
+    }
+
+    function asciiBar(fraction, width = 24) {
+      const filled = Math.round(fraction * width);
+      return "[" + "#".repeat(filled) + ".".repeat(width - filled) + "]";
+    }
+
+    function detail(item, position) {
+      if (item.status === "downloading") {
+        const speed = item.speed ? "  " + formatSize(item.speed) + "/s" : "";
+        if (!item.size) return "[" + "?".repeat(24) + "]  " + formatSize(item.downloaded) + speed;
+        const frac = Math.min(1, item.downloaded / item.size);
+        return asciiBar(frac) + " " + String(Math.floor(frac * 100)).padStart(3) + "%" + speed;
+      }
+      if (item.status === "error") return "error: " + (item.error || "unbekannt");
+      if (item.status === "queued" && position > 0) return "";
+      if (item.status === "queued") return "als nächstes";
+      return "";
+    }
+
+    const rows = new Map();
+
+    function rowFor(id) {
+      let li = rows.get(id);
+      if (!li) {
+        li = document.createElement("li");
+        li.dataset.id = id;
+        li.innerHTML = '<span class="tag"></span><span class="name"></span><span class="size"></span>' +
+          `<button class="trash" type="button" title="Aus der Liste entfernen" aria-label="Entfernen">${TRASH}</button>` +
+          '<span class="detail"></span>';
+        rows.set(id, li);
+      }
+      return li;
+    }
+
+    function setText(el, text) {
+      if (el.textContent !== text) el.textContent = text;
+    }
+
+    function render(items) {
+      queue.classList.toggle("open", items.length > 0);
+      const pending = items.filter(i => i.status === "queued" || i.status === "downloading").length;
+      count.textContent = `$ ls queue/   # ${items.length} ${items.length === 1 ? "Datei" : "Dateien"}, ${pending} ausstehend`;
+      clearBtn.hidden = !items.some(i => i.status === "done" || i.status === "error");
+
+      const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 8;
+      // update rows in place so hover state and colors stay stable between polls
+      const ids = new Set(items.map(i => i.id));
+      for (const [id, li] of rows) if (!ids.has(id)) { li.remove(); rows.delete(id); }
+      let position = 0;
+      items.forEach((item, index) => {
+        const li = rowFor(item.id);
+        const pos = item.status === "queued" ? position++ : null;
+        if (li.className !== item.status) li.className = item.status;
+        setText(li.querySelector(".tag"), TAGS[item.status] || "[ ?? ]");
+        setText(li.querySelector(".name"), item.name);
+        li.querySelector(".name").title = item.url;
+        setText(li.querySelector(".size"), formatSize(item.size));
+        setText(li.querySelector(".detail"), detail(item, pos));
+        if (list.children[index] !== li) list.insertBefore(li, list.children[index] || null);
+      });
+      if (atBottom) list.scrollTop = list.scrollHeight;
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
+      if (!res.ok) throw new Error(await res.text() || res.statusText);
+      return res.status === 204 ? null : res.json();
+    }
+
+    async function refresh() {
+      try {
+        const data = await api("api/items");
+        render(data.items);
+        pathEl.textContent = data.directory.replace(/^\/media\//, "~/");
+      } catch (err) {
+        message.textContent = "bash: connection lost – Add-on nicht erreichbar";
+        message.dataset.kind = "connection";
+        return;
+      }
+      if (message.dataset.kind === "connection") { message.textContent = ""; message.dataset.kind = ""; }
+    }
+
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const url = input.value.trim();
+      if (!url) { input.focus(); return; }
+      addBtn.disabled = true;
+      message.textContent = "";
+      try {
+        await api("api/items", { method: "POST", body: JSON.stringify({ url }) });
+        input.value = "";
+        await refresh();
+        list.scrollTop = list.scrollHeight;
+      } catch (err) {
+        message.textContent = "wget: " + err.message;
+      } finally {
+        addBtn.disabled = false;
+        input.focus();
+      }
+    });
+
+    list.addEventListener("click", async e => {
+      const btn = e.target.closest(".trash");
+      if (!btn) return;
+      const li = btn.closest("li");
+      li.style.opacity = ".35";
+      try {
+        await api("api/items/" + li.dataset.id, { method: "DELETE" });
+      } catch (err) {
+        message.textContent = "rm: " + err.message;
+        li.style.opacity = "";
+      }
+      refresh();
+    });
+
+    clearBtn.addEventListener("click", async () => {
+      await api("api/clear", { method: "POST" });
+      refresh();
+    });
+
+    // clicking anywhere on the "screen" focuses the prompt, like a real terminal
+    document.addEventListener("mouseup", e => {
+      if (!window.getSelection().toString() && !e.target.closest("button, a")) input.focus();
+    });
+
+    refresh();
+    setInterval(refresh, 1000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+configuration:
+  design:
+    name: Design
+    description: Look of the web interface – modern or classic terminal.
+  theme:
+    name: Color scheme
+    description: Dark or light mode.
+  download_dir:
+    name: Download folder
+    description: Folder where files are saved (e.g. /media/downloads or /share/downloads).
+network:
+  8099/tcp: Web interface (optional, otherwise available via the sidebar)

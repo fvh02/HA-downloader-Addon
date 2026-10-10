@@ -29,9 +29,15 @@ def load_options() -> dict:
         return {}
 
 
-DOWNLOAD_DIR = Path(
-    os.environ.get("DOWNLOADER_DIR") or load_options().get("download_dir") or "/media/downloads"
-)
+OPTIONS = load_options()
+DOWNLOAD_DIR = Path(os.environ.get("DOWNLOADER_DIR") or OPTIONS.get("download_dir") or "/media/downloads")
+PAGES = {"modern": "modern.html", "terminal": "terminal.html"}
+DESIGN = os.environ.get("DOWNLOADER_DESIGN") or OPTIONS.get("design") or "modern"
+THEME = os.environ.get("DOWNLOADER_THEME") or OPTIONS.get("theme") or "dark"
+if DESIGN not in PAGES:
+    DESIGN = "modern"
+if THEME not in ("dark", "light"):
+    THEME = "dark"
 
 
 def sanitize_filename(name: str) -> str:
@@ -217,8 +223,10 @@ def public(item: dict) -> dict:
 
 
 @routes.get("/")
-async def index(_: web.Request) -> web.FileResponse:
-    return web.FileResponse(STATIC_DIR / "index.html")
+async def index(_: web.Request) -> web.Response:
+    html = (STATIC_DIR / PAGES[DESIGN]).read_text(encoding="utf-8")
+    html = html.replace("<html ", f'<html data-theme="{THEME}" ', 1)
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-cache"})
 
 
 @routes.get("/api/items")
@@ -265,7 +273,7 @@ async def on_startup(app: web.Application) -> None:
         headers={"User-Agent": "Mozilla/5.0 (HomeAssistant Downloader Add-on)"},
     )
     app["worker"] = asyncio.create_task(queue.worker())
-    log.info("Downloads werden gespeichert in %s", DOWNLOAD_DIR)
+    log.info("Downloads werden gespeichert in %s (Design: %s, %s)", DOWNLOAD_DIR, DESIGN, THEME)
 
 
 async def on_cleanup(app: web.Application) -> None:

@@ -17,12 +17,18 @@ beginnt nach dem Neustart von vorn.
 ## Konfiguration
 
 ```yaml
+design: modern
+theme: dark
 download_dir: /media/downloads
 ```
 
-| Option         | Beschreibung                                                                 |
-| -------------- | ---------------------------------------------------------------------------- |
-| `download_dir` | Zielordner. `/media/...` (im Medien-Browser sichtbar) oder `/share/...`.     |
+| Option         | Beschreibung                                                                          |
+| -------------- | ------------------------------------------------------------------------------------- |
+| `design`       | `modern`: zentrierte Suchleiste mit Dropdown-Liste. `terminal`: klassischer Terminal-Look, Eingabezeile unten links, Liste darüber. |
+| `theme`        | `dark` oder `light`.                                                                   |
+| `download_dir` | Zielordner. `/media/...` (im Medien-Browser sichtbar) oder `/share/...`.               |
+
+Nach einer Änderung das Add-on neu starten und die Seite neu laden.
 
 ## Zugriff ohne Home Assistant
 
