@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+- Fix: In der Seitenleiste erschien „Ungültiger oder fehlender API-Token“, sobald ein Token
+  gesetzt war. Seitenleiste (Port 8099, intern) und direkter Zugriff (neu: Port 8100) sind jetzt
+  getrennt; nur Port 8100 verlangt den Token.
+
 ## 1.2.0
 
 - iMessage-Benachrichtigungen über Inkbox, wenn ein Download fertig ist oder fehlschlägt

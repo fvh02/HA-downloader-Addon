@@ -1,5 +1,5 @@
 name: Downloader
-version: "1.2.0"
+version: "1.2.1"
 slug: downloader
 description: Warteschlange für Datei-Downloads mit moderner Weboberfläche
 url: https://github.com/fvh02/HA-downloader-Addon
@@ -13,9 +13,9 @@ ingress_port: 8099
 panel_icon: mdi:download-circle
 panel_title: Downloader
 ports:
-  8099/tcp: null
+  8100/tcp: null
 ports_description:
-  8099/tcp: Weboberfläche (optional, sonst über die Seitenleiste erreichbar)
+  8100/tcp: Direkter Zugriff mit API-Token (z. B. für deinen Assistenten)
 map:
   - media:rw
   - share:rw

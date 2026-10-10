@@ -372,7 +372,7 @@
       }).join("");
     }
 
-    // direct access via port 8099 may need the API token: open the page with ?token=...
+    // direct access via port 8100 may need the API token: open the page with ?token=...
     const TOKEN = new URLSearchParams(location.search).get("token");
 
     async function api(path, options = {}) {

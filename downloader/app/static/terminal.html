@@ -293,7 +293,7 @@ Tippe einen Link ein und drücke Enter. Mehrere Links durch Leerzeichen trennen.
       if (atBottom) list.scrollTop = list.scrollHeight;
     }
 
-    // direct access via port 8099 may need the API token: open the page with ?token=...
+    // direct access via port 8100 may need the API token: open the page with ?token=...
     const TOKEN = new URLSearchParams(location.search).get("token");
 
     async function api(path, options = {}) {

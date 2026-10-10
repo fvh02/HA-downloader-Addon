@@ -30,7 +30,7 @@ imessage_to: ""
 | `design`       | `modern`: zentrierte Suchleiste mit Dropdown-Liste. `terminal`: klassischer Terminal-Look, Eingabezeile unten links, Liste darüber. |
 | `theme`        | `dark` oder `light`.                                                                   |
 | `download_dir` | Zielordner. `/media/...` (im Medien-Browser sichtbar) oder `/share/...`.               |
-| `api_token`    | Optional. Schützt den direkten Zugriff über Port 8099 (siehe unten).                   |
+| `api_token`    | Optional. Schaltet den direkten Zugriff über Port 8100 frei (siehe unten).                   |
 | `inkbox_api_key` | Optional. API-Key deiner Inkbox-Identität für iMessage-Benachrichtigungen.           |
 | `imessage_to`  | Optional. Deine Handynummer (`+491701234567`), an die Benachrichtigungen gehen.        |
 
@@ -39,10 +39,10 @@ Nach einer Änderung das Add-on neu starten und die Seite neu laden.
 ## Zugriff ohne Home Assistant
 
 Standardmäßig ist die Oberfläche nur über die Home-Assistant-Seitenleiste (Ingress) erreichbar.
-Unter **Netzwerk** kann optional Port `8099` freigegeben werden. Setze dann unbedingt einen
-`api_token` – ohne Token kann jeder, der den Port erreicht, Downloads hinzufügen.
+Unter **Netzwerk** kann optional Port `8100` freigegeben werden. Dieser Port funktioniert nur
+mit gesetztem `api_token`; ohne Token lehnt er alle Anfragen ab.
 
-Mit Token öffnest du die Seite direkt über `http://<home-assistant>:8099/?token=<api_token>`.
+Mit Token öffnest du die Seite direkt über `http://<home-assistant>:8100/?token=<api_token>`.
 Über die Seitenleiste ist nie ein Token nötig.
 
 ## iMessage über deinen Assistenten
@@ -61,7 +61,7 @@ der du per iMessage schreibst (am besten ein auf diese Identität beschränkter 
 
 Dein Assistent braucht dafür Zugriff auf die API des Add-ons:
 
-1. Port `8099` unter **Netzwerk** freigeben und einen `api_token` setzen.
+1. Port `8100` unter **Netzwerk** freigeben und einen `api_token` setzen.
 2. Den Port aus dem Internet erreichbar machen, z. B. per Portweiterleitung im Router
    (am besten mit HTTPS über einen Reverse-Proxy) oder mit dem Cloudflared-Add-on.
 3. Dem Assistenten die Adresse und den Token als `DOWNLOADER_URL` und `DOWNLOADER_TOKEN`
