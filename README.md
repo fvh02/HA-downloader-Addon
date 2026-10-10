@@ -7,6 +7,15 @@ und das Add-on lädt sie der Reihe nach herunter.
 
 ## Installation
 
+### Mit einem Klick
+
+[![Repository zu Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Ffvh02%2FHA-downloader-Addon)
+
+Der Button öffnet deine Home-Assistant-Instanz und fügt dieses Repository zum Add-on Store hinzu.
+Danach **Downloader** auswählen, installieren und starten.
+
+### Manuell
+
 1. In Home Assistant **Einstellungen → Add-ons → Add-on Store** öffnen.
 2. Oben rechts im Menü (⋮) **Repositories** wählen und diese URL hinzufügen:
    `https://github.com/fvh02/HA-downloader-Addon`
