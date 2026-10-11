@@ -17,6 +17,8 @@ OPTIONS_FILE = Path("/data/options.json")
 STATE_FILE = Path(os.environ.get("DOWNLOADER_STATE", "/data/queue.json"))
 STATIC_DIR = Path(__file__).parent / "static"
 PORT = int(os.environ.get("DOWNLOADER_PORT", "8099"))  # Ingress; other add-ons reach it on the internal network
+# Gateway setups from before 1.3.0 still call the old port; answer there too (not mapped to the host).
+LEGACY_PORT = int(os.environ.get("DOWNLOADER_LEGACY_PORT", "8100"))
 CHUNK_SIZE = 256 * 1024
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -376,7 +378,9 @@ def main() -> None:
 async def serve(app: web.Application) -> None:
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
-    await web.TCPSite(runner, "0.0.0.0", PORT).start()
+    # host=None listens on IPv4 and IPv6; the internal network may resolve add-on names to either.
+    for port in (PORT, LEGACY_PORT):
+        await web.TCPSite(runner, None, port).start()
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

@@ -1,5 +1,5 @@
 name: Downloader
-version: "1.3.1"
+version: "1.3.2"
 slug: downloader
 description: Warteschlange für Datei-Downloads mit moderner Weboberfläche
 url: https://github.com/fvh02/HA-downloader-Addon

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.2
+
+- Das Gateway erreicht den Downloader wieder, auch mit älterer Adresse (Port 8100) oder über IPv6.
+
 ## 1.3.1
 
 - Das Add-on wird jetzt auf GitHub gebaut; Home Assistant lädt nur noch das fertige Image
