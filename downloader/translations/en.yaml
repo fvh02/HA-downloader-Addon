@@ -14,3 +14,5 @@ configuration:
   imessage_to:
     name: iMessage recipient
     description: Your phone number, e.g. +491701234567. Notifications are sent there when a download finishes or fails.
+network:
+  8099/tcp: Web interface and API on your home network (e.g. for the Inkbox Claude Gateway)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.3
+
+- Port 8099 ist wieder im Heimnetz erreichbar (`http://<home-assistant-ip>:8099`), z. B. für
+  das Inkbox Claude Gateway. Ohne Anmeldung.
+
 ## 1.3.2
 
 - Das Gateway erreicht den Downloader wieder, auch mit älterer Adresse (Port 8100) oder über IPv6.

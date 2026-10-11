@@ -14,3 +14,5 @@ configuration:
   imessage_to:
     name: iMessage-Empfänger
     description: Deine Handynummer im Format +491701234567. Dorthin gehen die Benachrichtigungen, wenn ein Download fertig ist oder fehlschlägt.
+network:
+  8099/tcp: Weboberfläche und API im Heimnetz (z. B. für das Inkbox Claude Gateway)

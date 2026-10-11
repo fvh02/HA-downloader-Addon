@@ -36,9 +36,10 @@ Nach einer Änderung das Add-on neu starten und die Seite neu laden.
 
 ## Zugriff
 
-Die Oberfläche ist über die Home-Assistant-Seitenleiste erreichbar. Andere Add-ons erreichen
-den Downloader im internen Netz von Home Assistant unter `http://<hostname>:8099` (den
-Hostnamen zeigt der Reiter **Info**). Von außen ist er nicht erreichbar.
+Die Oberfläche ist über die Home-Assistant-Seitenleiste erreichbar und zusätzlich im Heimnetz
+unter `http://<home-assistant-ip>:8099` (ohne Anmeldung; den Port kannst du im Reiter
+**Netzwerk** ändern oder leeren, um das abzuschalten). Andere Add-ons erreichen den Downloader
+auch intern unter `http://<hostname>:8099` (Hostname siehe Reiter **Info**).
 
 ## iMessage über deinen Assistenten
 
@@ -55,8 +56,8 @@ der du per iMessage schreibst (am besten ein auf diese Identität beschränkter 
 ### Status abfragen und Links hinzufügen
 
 Das übernimmt das [Inkbox Claude Gateway](https://github.com/fvh02/fabiaiagent) mit seinem
-`downloader`-Befehl. Es spricht den Downloader über das interne Netz an; einzurichten ist dort
-nur die **Downloader-Adresse**.
+`downloader`-Befehl. Es spricht den Downloader über das Heimnetz oder das interne Netz an; einzurichten ist dort
+nur die **Downloader-Adresse**, z. B. `http://<home-assistant-ip>:8099`.
 
 Die Endpunkte:
 
