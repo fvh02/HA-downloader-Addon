@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1
+
+- Das Add-on wird jetzt auf GitHub gebaut; Home Assistant lädt nur noch das fertige Image
+  herunter, statt es selbst zu bauen. Installation und Updates gehen dadurch deutlich schneller.
+
 ## 1.3.0
 
 - API-Token und Port 8100 entfernt. Die Seitenleiste zeigt keine Token-Fehler mehr; das
