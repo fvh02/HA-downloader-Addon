@@ -1,0 +1,18 @@
+configuration:
+  design:
+    name: Design
+    description: "glass: frosted glass like the games · modern: clean, bright design · terminal: classic terminal look"
+  theme:
+    name: Color scheme
+    description: Dark or light mode.
+  quality:
+    name: Default quality
+    description: Preselected when adding. "best" = highest available quality, "audio" = sound only as MP3. Can be changed per video.
+  download_dir:
+    name: Download folder
+    description: Where videos are saved; the library shows this folder.
+  update_ytdlp:
+    name: Update yt-dlp on start
+    description: Recommended – YouTube changes often, a current yt-dlp prevents failing downloads.
+network:
+  8097/tcp: Downloader and library on your home network

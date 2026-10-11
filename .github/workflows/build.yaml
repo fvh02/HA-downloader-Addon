@@ -1,4 +1,4 @@
-name: Build add-on images
+name: Build Downloader images
 
 # Builds the add-on once per architecture and publishes it to GHCR, so Home
 # Assistant only pulls a ready image instead of building it on the device.

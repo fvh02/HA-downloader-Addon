@@ -23,3 +23,12 @@ Danach **Downloader** auswählen, installieren und starten.
 4. Über **Seitenleiste anzeigen** erscheint der Downloader direkt in der Home-Assistant-Seitenleiste.
 
 Details zur Konfiguration stehen in [`downloader/DOCS.md`](downloader/DOCS.md).
+
+## Add-ons in diesem Repository
+
+| Add-on | Beschreibung |
+| ------ | ------------ |
+| [Downloader](downloader/DOCS.md) | Dateien per Link in eine Warteschlange legen und nacheinander herunterladen. |
+| [Video-Downloader](videodownloader/DOCS.md) | YouTube- und Online-Videos in wählbarer Qualität herunterladen, mit Mediathek. |
+
+Beide werden auf GitHub gebaut; Home Assistant lädt nur die fertigen Images.

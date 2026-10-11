@@ -1,0 +1,18 @@
+configuration:
+  design:
+    name: Design
+    description: "glass: Milchglas-Look wie in den Spielen · modern: klares, helles Design · terminal: klassischer Terminal-Look"
+  theme:
+    name: Farbschema
+    description: Dunkler (dark) oder heller (light) Modus.
+  quality:
+    name: Standardqualität
+    description: Vorauswahl beim Hinzufügen. „best“ = höchste verfügbare Qualität, „audio“ = nur der Ton als MP3. Pro Video änderbar.
+  download_dir:
+    name: Download-Ordner
+    description: Hier landen die Videos; die Mediathek zeigt diesen Ordner. /media/... ist auch im Medien-Browser von Home Assistant sichtbar.
+  update_ytdlp:
+    name: yt-dlp beim Start aktualisieren
+    description: Empfohlen – YouTube ändert sich oft, eine aktuelle yt-dlp-Version verhindert fehlschlagende Downloads.
+network:
+  8097/tcp: Downloader und Mediathek im Heimnetz

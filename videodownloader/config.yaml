@@ -1,0 +1,32 @@
+name: Video-Downloader
+version: "1.0.0"
+slug: videodownloader
+description: YouTube und Online-Videos in wählbarer Qualität herunterladen – mit Mediathek
+url: https://github.com/fvh02/HA-downloader-Addon
+image: ghcr.io/fvh02/{arch}-ha-videodownloader
+arch:
+  - amd64
+  - aarch64
+ingress: true
+ingress_port: 8097
+panel_icon: mdi:video-box
+panel_title: Videos
+ports:
+  8097/tcp: 8097
+ports_description:
+  8097/tcp: Downloader und Mediathek im Heimnetz
+map:
+  - media:rw
+  - share:rw
+options:
+  design: glass
+  theme: dark
+  quality: best
+  download_dir: /media/videos
+  update_ytdlp: true
+schema:
+  design: list(glass|modern|terminal)
+  theme: list(dark|light)
+  quality: list(best|2160|1440|1080|720|480|360|audio)
+  download_dir: str
+  update_ytdlp: bool

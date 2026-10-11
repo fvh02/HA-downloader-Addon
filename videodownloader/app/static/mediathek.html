@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mediathek</title>
+  <link rel="stylesheet" href="../static/base.css">
+  <style>
+    main { max-width: 1180px; margin: 0 auto; padding: 0 16px 48px; }
+    .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 34px 0 18px; }
+    .head h1 { margin: 0; font-size: 2.1rem; letter-spacing: -.02em; }
+    :root[data-design="glass"] .head h1 { background: linear-gradient(135deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 2.4rem; }
+    .head .sub { color: var(--muted); font-size: .9rem; margin-top: 4px; }
+    .storage { min-width: 240px; flex: 0 1 320px; font-size: .82rem; color: var(--muted); }
+    .storage .meter { height: 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; margin-top: 6px; }
+    .storage .meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: inherit; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 10px; border-radius: 20px; margin-bottom: 20px; }
+    .search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+    .search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; padding: 10px 0; }
+    .search svg { color: var(--muted); flex: none; }
+    .chips { display: flex; gap: 6px; }
+    .chip { border: 1px solid var(--border); background: transparent; color: var(--muted); padding: 8px 14px; border-radius: 999px; font-weight: 600; font-size: .88rem; }
+    .chip.on { background: var(--accent); color: #fff; border-color: transparent; }
+    :root[data-design="glass"] .chip.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+    #sort { border: 1px solid var(--border); background: var(--surface-2); border-radius: 999px; padding: 9px 12px; outline: none; }
+    #sort option { color: #111; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; }
+    .tile {
+      border-radius: 20px; overflow: hidden; cursor: pointer; text-align: left; padding: 0; border: 1px solid var(--border);
+      background: var(--surface); box-shadow: var(--shadow); transition: transform .2s cubic-bezier(.3,.9,.3,1.3), box-shadow .2s;
+      animation: rise .35s ease both; display: flex; flex-direction: column;
+    }
+    :root[data-design="glass"] .tile { backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); }
+    .tile:hover { transform: translateY(-4px); box-shadow: var(--shadow), 0 14px 34px color-mix(in srgb, var(--accent) 22%, transparent); }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+    .poster { aspect-ratio: 16 / 9; position: relative; background: linear-gradient(135deg, var(--accent-soft), var(--surface-2)); display: grid; place-items: center; color: var(--accent); overflow: hidden; }
+    .poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .4s; }
+    .tile:hover .poster img { transform: scale(1.05); }
+    .poster .dur { position: absolute; right: 8px; bottom: 8px; background: rgba(0,0,0,.7); color: #fff; font-size: .75rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; }
+    .poster .play {
+      position: absolute; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; color: #fff;
+      background: rgba(0,0,0,.45); backdrop-filter: blur(6px); opacity: 0; transform: scale(.8); transition: opacity .2s, transform .2s;
+    }
+    .tile:hover .poster .play { opacity: 1; transform: none; }
+    .tile .meta { padding: 12px 14px 14px; }
+    .tile .t { font-weight: 650; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .tile .s { color: var(--muted); font-size: .8rem; margin-top: 6px; }
+    .empty { text-align: center; color: var(--muted); padding: 60px 16px; }
+    .empty a { color: var(--accent); }
+
+    /* player */
+    .overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(5, 5, 20, .55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); animation: fade .2s ease; }
+    @keyframes fade { from { opacity: 0; } }
+    .player { width: min(980px, 100%); border-radius: 24px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 30px 80px rgba(0,0,0,.45); animation: pop .3s cubic-bezier(.2,.9,.3,1.2); }
+    :root[data-design="glass"] .player { backdrop-filter: blur(26px) saturate(160%); -webkit-backdrop-filter: blur(26px) saturate(160%); }
+    :root[data-design="modern"] .player { background: var(--surface); }
+    @keyframes pop { from { transform: scale(.94); opacity: 0; } }
+    .player video { display: block; width: 100%; max-height: 70vh; background: #000; }
+    .player .audio { padding: 34px 24px 10px; display: grid; place-items: center; gap: 16px; }
+    .player .audio .disc { width: 140px; height: 140px; border-radius: 50%; background: conic-gradient(from 0deg, var(--accent), var(--accent-2), var(--accent)); display: grid; place-items: center; animation: spin 6s linear infinite; animation-play-state: paused; }
+    .player .audio .disc::after { content: ""; width: 30px; height: 30px; border-radius: 50%; background: var(--bg); }
+    .player .audio.playing .disc { animation-play-state: running; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .player audio { width: min(520px, 100%); }
+    .player .bottom { padding: 16px 20px 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .player .bottom .info { flex: 1 1 260px; min-width: 0; }
+    .player .bottom .t { font-weight: 700; font-size: 1.05rem; }
+    .player .bottom .s { color: var(--muted); font-size: .85rem; margin-top: 3px; }
+    .player .bottom .s a { color: var(--accent); }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .actions .btn { padding: 9px 14px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: .9rem; }
+    .actions .danger:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+
+    /* ---------- terminal design ---------- */
+    :root[data-design="terminal"] body { font-size: 15px; line-height: 1.55; }
+    :root[data-design="terminal"] main { max-width: none; }
+    :root[data-design="terminal"] .head { margin: 12px 0; align-items: flex-start; }
+    :root[data-design="terminal"] .head h1 { font-size: 1em; font-weight: 400; color: var(--muted); }
+    :root[data-design="terminal"] .head h1::before { content: "$ ls -lh ~/videos   # "; }
+    :root[data-design="terminal"] .head .sub { margin: 0; }
+    :root[data-design="terminal"] .storage .meter { border-radius: 0; height: auto; border: 0; background: none; font-family: inherit; }
+    :root[data-design="terminal"] .storage .meter span { display: none; }
+    :root[data-design="terminal"] .toolbar { padding: 0; gap: 2ch; margin-bottom: 10px; }
+    :root[data-design="terminal"] .search { border-radius: 0; border: 0; background: none; padding: 0; flex: 0 1 40ch; }
+    :root[data-design="terminal"] .search svg { display: none; }
+    :root[data-design="terminal"] .search::before { content: "grep"; color: var(--accent); }
+    :root[data-design="terminal"] .search input { padding: 0; border-bottom: 1px dashed var(--border); }
+    :root[data-design="terminal"] .chip { border: 0; border-radius: 0; padding: 0; font-weight: 400; color: var(--muted); }
+    :root[data-design="terminal"] .chip::before { content: "["; } :root[data-design="terminal"] .chip::after { content: "]"; }
+    :root[data-design="terminal"] .chip.on { background: var(--text); color: var(--bg); text-shadow: none; }
+    :root[data-design="terminal"] #sort { border: 0; border-radius: 0; background: none; padding: 0; color: var(--size); }
+    :root[data-design="terminal"] .grid { display: block; }
+    :root[data-design="terminal"] .tile {
+      display: grid; grid-template-columns: 7ch 8ch 11ch 1fr; gap: 1.5ch; width: 100%; border: 0; border-radius: 0;
+      background: none; box-shadow: none; padding: 1px 0; animation: none; backdrop-filter: none; color: inherit; font: inherit;
+    }
+    :root[data-design="terminal"] .tile:hover { transform: none; background: var(--accent-soft); }
+    :root[data-design="terminal"] .tile:hover .t { color: var(--accent); }
+    :root[data-design="terminal"] .poster { display: none; }
+    :root[data-design="terminal"] .tile .meta { display: contents; }
+    :root[data-design="terminal"] .tile .s { display: none; }
+    :root[data-design="terminal"] .tile .t { -webkit-line-clamp: 1; font-weight: 400; order: 4; white-space: nowrap; text-overflow: ellipsis; display: block; }
+    .tc { display: none; }
+    :root[data-design="terminal"] .tc { display: block; white-space: nowrap; }
+    :root[data-design="terminal"] .tc.size { color: var(--size); text-align: right; }
+    :root[data-design="terminal"] .tc.kind { color: var(--muted); }
+    :root[data-design="terminal"] .overlay { background: rgba(0,0,0,.7); backdrop-filter: none; }
+    :root[data-design="terminal"] .player { border-radius: 0; background: var(--bg); border: 1px solid var(--text); box-shadow: 0 0 0 1px var(--bg), 0 0 24px rgba(60,255,110,.15); animation: none; }
+    :root[data-design="terminal"] .player .audio .disc { border-radius: 0; background: none; border: 1px solid var(--text); width: 120px; height: 120px; animation: none; }
+    :root[data-design="terminal"] .player .audio .disc::after { content: "♪"; background: none; width: auto; height: auto; font-size: 3rem; color: var(--text); }
+    @media (max-width: 560px) {
+      .head { margin-top: 20px; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+      .tile .meta { padding: 10px; }
+      :root[data-design="terminal"] .tile { grid-template-columns: 7ch 1fr; }
+      :root[data-design="terminal"] .tc.kind, :root[data-design="terminal"] .tc.date { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="backdrop"><i></i><i></i><i></i><i></i></div>
+  <nav class="tabs"><a href="../">Downloader</a><a class="active" href="./">Mediathek</a></nav>
+  <main>
+    <div class="head">
+      <div><h1>Mediathek</h1><div class="sub" id="sub"></div></div>
+      <div class="storage" id="storage"></div>
+    </div>
+    <div class="toolbar glass">
+      <label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Suchen …" spellcheck="false" aria-label="Suchen"></label>
+      <div class="chips" id="chips">
+        <button class="chip on" data-kind="all">Alle</button><button class="chip" data-kind="video">Videos</button><button class="chip" data-kind="audio">Audio</button>
+      </div>
+      <select id="sort" aria-label="Sortierung">
+        <option value="added">Neueste zuerst</option><option value="title">Name A–Z</option><option value="size">Größte zuerst</option><option value="duration">Längste zuerst</option>
+      </select>
+    </div>
+    <div class="grid" id="grid"></div>
+  </main>
+  <div class="overlay hidden" id="overlay"></div>
+
+  <script src="../static/base.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    const T = UI.terminal;
+    let entries = [], kind = "all", lastKey = "";
+    const ICON_NOTE = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+    const ICON_PLAY = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+    const fileUrl = (e, dl) => `../files/${e.id}/${encodeURIComponent(e.name)}${dl ? "?download=1" : ""}`;
+
+    function visible() {
+      const q = $("q").value.trim().toLowerCase();
+      const sort = $("sort").value;
+      return entries
+        .filter(e => kind === "all" || e.kind === kind)
+        .filter(e => !q || (e.title + " " + (e.uploader || "") + " " + e.name).toLowerCase().includes(q))
+        .sort((a, b) => sort === "title" ? a.title.localeCompare(b.title, "de")
+          : sort === "size" ? b.size - a.size : sort === "duration" ? (b.duration || 0) - (a.duration || 0) : b.added - a.added);
+    }
+
+    function tile(e) {
+      const date = new Date(e.added * 1000).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" });
+      return `<button class="tile" data-id="${e.id}">
+        <span class="tc kind">${e.kind === "audio" ? "audio" : "video"}</span>
+        <span class="tc size">${UI.size(e.size)}</span>
+        <span class="tc date">${date}</span>
+        <div class="poster">${e.kind === "audio" ? ICON_NOTE : ""}
+          <img src="../api/thumb/${e.id}" alt="" loading="lazy" onerror="this.remove()">
+          ${e.duration ? `<span class="dur">${UI.duration(e.duration)}</span>` : ""}<span class="play">${ICON_PLAY}</span></div>
+        <div class="meta"><div class="t">${UI.esc(e.title)}</div>
+          <div class="s">${UI.size(e.size)} · ${UI.ago(e.added)}${e.uploader ? " · " + UI.esc(e.uploader) : ""}</div></div>
+      </button>`;
+    }
+
+    function render() {
+      const list = visible();
+      const key = list.map(e => e.id + e.size + e.title).join("|") + T;
+      if (key === lastKey) return;
+      lastKey = key;
+      $("grid").innerHTML = list.length ? list.map(tile).join("")
+        : `<div class="empty">${entries.length ? "Nichts gefunden." : 'Noch keine Videos. <a href="../">Lade dein erstes Video herunter</a>.'}</div>`;
+    }
+
+    async function load() {
+      try {
+        const data = await UI.api("../api/library");
+        entries = data.entries;
+        const videos = entries.filter(e => e.kind === "video").length, audios = entries.length - videos;
+        $("sub").textContent = T ? `${entries.length} Dateien, ${UI.size(data.library_size)} gesamt`
+          : `${videos} ${videos === 1 ? "Video" : "Videos"} · ${audios} Audio · ${UI.size(data.library_size)}`;
+        if (data.disk) {
+          const pct = data.disk.used / data.disk.total * 100;
+          $("storage").innerHTML = T ? `df -h: ${UI.size(data.disk.used)} / ${UI.size(data.disk.total)} belegt, ${UI.size(data.disk.free)} frei`
+            : `Speicher: ${UI.size(data.disk.free)} frei von ${UI.size(data.disk.total)}<div class="meter"><span style="width:${pct.toFixed(1)}%"></span></div>`;
+        }
+        render();
+      } catch (err) { UI.toast("Mediathek konnte nicht geladen werden"); }
+    }
+
+    function open(id) {
+      const e = entries.find(x => x.id === id);
+      if (!e) return;
+      const media = e.kind === "audio"
+        ? `<div class="audio"><div class="disc"></div><audio src="${fileUrl(e)}" controls autoplay></audio></div>`
+        : `<video src="${fileUrl(e)}" controls autoplay playsinline></video>`;
+      $("overlay").innerHTML = `<div class="player" role="dialog" aria-label="${UI.esc(e.title)}">${media}
+        <div class="bottom"><div class="info"><div class="t">${UI.esc(e.title)}</div>
+          <div class="s">${UI.size(e.size)}${e.duration ? " · " + UI.duration(e.duration) : ""} · ${UI.ago(e.added)}${e.uploader ? " · " + UI.esc(e.uploader) : ""}${e.url ? ` · <a href="${UI.esc(e.url)}" target="_blank" rel="noopener">Quelle</a>` : ""}</div></div>
+          <div class="actions">
+            <a class="btn ghost" href="${fileUrl(e, true)}" download>⬇ Herunterladen</a>
+            <button class="btn ghost" data-act="rename">✎ Umbenennen</button>
+            <button class="btn ghost danger" data-act="delete">${T ? "rm" : "🗑 Löschen"}</button>
+            <button class="btn" data-act="close">Schließen</button>
+          </div></div></div>`;
+      $("overlay").classList.remove("hidden");
+      $("overlay").dataset.id = id;
+      const audio = $("overlay").querySelector("audio");
+      if (audio) { const wrap = audio.parentElement; audio.onplay = () => wrap.classList.add("playing"); audio.onpause = () => wrap.classList.remove("playing"); }
+    }
+    function close() { $("overlay").classList.add("hidden"); $("overlay").innerHTML = ""; }
+
+    $("grid").addEventListener("click", e => { const t = e.target.closest(".tile"); if (t) open(t.dataset.id); });
+    $("overlay").addEventListener("click", async e => {
+      if (e.target === $("overlay")) return close();
+      const act = e.target.closest("[data-act]")?.dataset.act;
+      const entry = entries.find(x => x.id === $("overlay").dataset.id);
+      if (!act || !entry) return;
+      if (act === "close") close();
+      if (act === "rename") {
+        const name = prompt("Neuer Name:", entry.title);
+        if (!name || name === entry.title) return;
+        try { await UI.api("../api/library/rename", { method: "POST", body: JSON.stringify({ id: entry.id, name }) }); close(); lastKey = ""; load(); UI.toast("Umbenannt"); }
+        catch (err) { UI.toast(err.message); }
+      }
+      if (act === "delete") {
+        if (!confirm(`„${entry.title}“ wirklich löschen? Die Datei wird entfernt.`)) return;
+        try { await UI.api("../api/library/" + entry.id, { method: "DELETE" }); close(); lastKey = ""; load(); UI.toast("Gelöscht"); }
+        catch (err) { UI.toast(err.message); }
+      }
+    });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+    $("q").addEventListener("input", render);
+    $("sort").addEventListener("change", render);
+    $("chips").addEventListener("click", e => {
+      const c = e.target.closest(".chip"); if (!c) return;
+      kind = c.dataset.kind;
+      $("chips").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === c));
+      render();
+    });
+    if (T) { $("sort").querySelectorAll("option").forEach(o => o.textContent = { added: "--sort=time", title: "--sort=name", size: "--sort=size", duration: "--sort=length" }[o.value]); $("q").placeholder = "suchbegriff"; }
+
+    load();
+    setInterval(() => { if ($("overlay").classList.contains("hidden")) load(); }, 10000);
+  </script>
+</body>
+</html>
