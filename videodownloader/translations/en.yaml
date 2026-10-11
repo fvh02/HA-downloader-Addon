@@ -14,5 +14,8 @@ configuration:
   update_ytdlp:
     name: Update yt-dlp on start
     description: Recommended – YouTube changes often, a current yt-dlp prevents failing downloads.
+  access_code:
+    name: Access code (internet)
+    description: Only asked when the page is opened through the internet (e.g. a Cloudflare Tunnel) – once per device. The home network, Home Assistant and the Claude Gateway need no code. Without a code, internet access is blocked.
 network:
   8097/tcp: Downloader and library on your home network

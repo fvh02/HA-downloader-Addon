@@ -29,6 +29,9 @@ Speicherplatz noch frei ist.
 - Über die Home-Assistant-Seitenleiste (**Videos**).
 - Im Heimnetz unter `http://<home-assistant-ip>:8097` (ohne Anmeldung; im Reiter **Netzwerk**
   änderbar oder abschaltbar).
+- Aus dem Internet (z. B. per Cloudflare Tunnel unter deiner Domain) mit dem **Zugangscode**
+  (Option `access_code`), einmal pro Gerät. Ohne gesetzten Code ist der Zugriff aus dem
+  Internet gesperrt. Anleitung: [Über das Internet erreichbar machen](https://github.com/fvh02/HA-downloader-Addon/blob/HEAD/TUNNEL.md)
 
 ## Konfiguration
 
@@ -39,6 +42,7 @@ Speicherplatz noch frei ist.
 | `quality`       | Vorauswahl: `best`, `2160`, `1440`, `1080`, `720`, `480`, `360` oder `audio`. |
 | `download_dir`  | Zielordner, Standard `/media/videos`.                                         |
 | `update_ytdlp`  | yt-dlp bei jedem Start aktualisieren (empfohlen).                             |
+| `access_code`   | Zugangscode für Aufrufe aus dem Internet. Leer = Internet gesperrt.           |
 
 Hinweis: Lade nur Videos herunter, bei denen du das darfst (eigene Inhalte, freie Lizenzen,
 private Kopie, soweit erlaubt). Manche Seiten verbieten das Herunterladen in ihren Bedingungen.

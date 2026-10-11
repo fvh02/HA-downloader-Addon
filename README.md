@@ -32,3 +32,7 @@ Details zur Konfiguration stehen in [`downloader/DOCS.md`](downloader/DOCS.md).
 | [Video-Downloader](videodownloader/DOCS.md) | YouTube- und Online-Videos in wählbarer Qualität herunterladen, mit Mediathek. |
 
 Beide werden auf GitHub gebaut; Home Assistant lädt nur die fertigen Images.
+
+## Über das Internet
+
+Anleitung für Cloudflare Tunnel und Zugangscodes: [TUNNEL.md](TUNNEL.md)

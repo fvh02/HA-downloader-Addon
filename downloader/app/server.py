@@ -13,6 +13,8 @@ from urllib.parse import unquote, urlparse
 
 from aiohttp import ClientSession, ClientTimeout, web
 
+from access import Gate
+
 OPTIONS_FILE = Path("/data/options.json")
 STATE_FILE = Path(os.environ.get("DOWNLOADER_STATE", "/data/queue.json"))
 STATIC_DIR = Path(__file__).parent / "static"
@@ -369,6 +371,7 @@ def main() -> None:
     queue.load()
     app = web.Application()
     app["queue"] = queue
+    Gate("Downloader", os.environ.get("DOWNLOADER_ACCESS_CODE") or OPTIONS.get("access_code"), THEME, "downloader_zugang").setup(app)
     app.add_routes(routes)
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)

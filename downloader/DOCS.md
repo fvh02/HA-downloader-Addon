@@ -22,6 +22,7 @@ theme: dark
 download_dir: /media/downloads
 inkbox_api_key: ""
 imessage_to: ""
+access_code: ""
 ```
 
 | Option         | Beschreibung                                                                          |
@@ -31,6 +32,7 @@ imessage_to: ""
 | `download_dir` | Zielordner. `/media/...` (im Medien-Browser sichtbar) oder `/share/...`.               |
 | `inkbox_api_key` | Optional. API-Key deiner Inkbox-Identität für iMessage-Benachrichtigungen.           |
 | `imessage_to`  | Optional. Deine Handynummer (`+491701234567`), an die Benachrichtigungen gehen.        |
+| `access_code`  | Zugangscode für Aufrufe aus dem Internet (z. B. Cloudflare Tunnel). Leer = Internet gesperrt. |
 
 Nach einer Änderung das Add-on neu starten und die Seite neu laden.
 
@@ -40,6 +42,11 @@ Die Oberfläche ist über die Home-Assistant-Seitenleiste erreichbar und zusätz
 unter `http://<home-assistant-ip>:8099` (ohne Anmeldung; den Port kannst du im Reiter
 **Netzwerk** ändern oder leeren, um das abzuschalten). Andere Add-ons erreichen den Downloader
 auch intern unter `http://<hostname>:8099` (Hostname siehe Reiter **Info**).
+
+**Aus dem Internet** (z. B. per Cloudflare Tunnel unter deiner Domain) fragt der Downloader
+nach dem **Zugangscode** (Option `access_code`), einmal pro Gerät. Ist kein Code gesetzt, ist
+der Zugriff aus dem Internet gesperrt. Heimnetz, Home Assistant und das Claude Gateway brauchen
+keinen Code. Anleitung: [Über das Internet erreichbar machen](https://github.com/fvh02/HA-downloader-Addon/blob/HEAD/TUNNEL.md)
 
 ## iMessage über deinen Assistenten
 

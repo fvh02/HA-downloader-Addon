@@ -1,5 +1,5 @@
 name: Video-Downloader
-version: "1.0.0"
+version: "1.1.0"
 slug: videodownloader
 description: YouTube und Online-Videos in wählbarer Qualität herunterladen – mit Mediathek
 url: https://github.com/fvh02/HA-downloader-Addon
@@ -24,9 +24,11 @@ options:
   quality: best
   download_dir: /media/videos
   update_ytdlp: true
+  access_code: ""
 schema:
   design: list(glass|modern|terminal)
   theme: list(dark|light)
   quality: list(best|2160|1440|1080|720|480|360|audio)
   download_dir: str
   update_ytdlp: bool
+  access_code: password?

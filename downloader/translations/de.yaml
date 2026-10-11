@@ -14,5 +14,8 @@ configuration:
   imessage_to:
     name: iMessage-Empfänger
     description: Deine Handynummer im Format +491701234567. Dorthin gehen die Benachrichtigungen, wenn ein Download fertig ist oder fehlschlägt.
+  access_code:
+    name: Zugangscode (Internet)
+    description: Wird nur gefragt, wenn die Seite über das Internet (z. B. Cloudflare Tunnel) geöffnet wird – einmal pro Gerät. Im Heimnetz, in Home Assistant und für das Claude Gateway ist kein Code nötig. Ohne Code ist der Zugriff aus dem Internet gesperrt.
 network:
   8099/tcp: Weboberfläche und API im Heimnetz (z. B. für das Inkbox Claude Gateway)

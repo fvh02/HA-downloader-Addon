@@ -19,6 +19,8 @@ from urllib.parse import urlparse
 import yt_dlp
 from aiohttp import ClientSession, ClientTimeout, web
 
+from access import Gate
+
 OPTIONS_FILE = Path("/data/options.json")
 DATA_DIR = Path(os.environ.get("VIDEO_DATA", "/data"))
 STATE_FILE = DATA_DIR / "queue.json"
@@ -630,6 +632,7 @@ def main():
     queue.load()
     app = web.Application()
     app["queue"] = queue
+    Gate("Video-Downloader", os.environ.get("VIDEO_ACCESS_CODE") or OPTIONS.get("access_code"), THEME, "videos_zugang").setup(app)
     app.router.add_static("/static/", STATIC_DIR / "shared")
     app.add_routes(routes)
     app.on_startup.append(on_startup)

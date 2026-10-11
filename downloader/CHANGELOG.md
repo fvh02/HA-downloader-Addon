@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0
+
+- **Zugangscode** (Option `access_code`) für Aufrufe aus dem Internet, z. B. über einen
+  Cloudflare Tunnel. Ohne Code ist der Zugriff aus dem Internet gesperrt. Heimnetz, Home
+  Assistant und das Claude Gateway brauchen weiterhin keinen Code.
+
 ## 1.3.3
 
 - Port 8099 ist wieder im Heimnetz erreichbar (`http://<home-assistant-ip>:8099`), z. B. für
