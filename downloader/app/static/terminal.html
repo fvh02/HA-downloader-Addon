@@ -293,13 +293,8 @@ Tippe einen Link ein und drücke Enter. Mehrere Links durch Leerzeichen trennen.
       if (atBottom) list.scrollTop = list.scrollHeight;
     }
 
-    // direct access via port 8100 may need the API token: open the page with ?token=...
-    const TOKEN = new URLSearchParams(location.search).get("token");
-
     async function api(path, options = {}) {
-      const headers = { "Content-Type": "application/json" };
-      if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
-      const res = await fetch(path, { headers, ...options });
+      const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
       if (!res.ok) throw new Error(await res.text() || res.statusText);
       return res.status === 204 ? null : res.json();
     }
@@ -310,7 +305,7 @@ Tippe einen Link ein und drücke Enter. Mehrere Links durch Leerzeichen trennen.
         render(data.items);
         pathEl.textContent = data.directory.replace(/^\/media\//, "~/");
       } catch (err) {
-        message.textContent = err.message.includes("Token") ? "401: " + err.message : "bash: connection lost – Add-on nicht erreichbar";
+        message.textContent = "bash: connection lost – Add-on nicht erreichbar";
         message.dataset.kind = "connection";
         return;
       }

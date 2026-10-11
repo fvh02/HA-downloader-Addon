@@ -1,7 +1,6 @@
 """Downloader add-on: hosts a small web UI and downloads queued files one after another."""
 
 import asyncio
-import hmac
 import json
 import logging
 import os
@@ -17,8 +16,7 @@ from aiohttp import ClientSession, ClientTimeout, web
 OPTIONS_FILE = Path("/data/options.json")
 STATE_FILE = Path(os.environ.get("DOWNLOADER_STATE", "/data/queue.json"))
 STATIC_DIR = Path(__file__).parent / "static"
-PORT = int(os.environ.get("DOWNLOADER_PORT", "8099"))  # Ingress (Home Assistant sidebar)
-EXTERNAL_PORT = int(os.environ.get("DOWNLOADER_EXTERNAL_PORT", "8100"))  # direct access, needs the API token
+PORT = int(os.environ.get("DOWNLOADER_PORT", "8099"))  # Ingress; other add-ons reach it on the internal network
 CHUNK_SIZE = 256 * 1024
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -41,9 +39,6 @@ if DESIGN not in PAGES:
     DESIGN = "modern"
 if THEME not in ("dark", "light"):
     THEME = "dark"
-
-# Access through the external port requires this token; without it that port's API is disabled.
-API_TOKEN = (os.environ.get("DOWNLOADER_API_TOKEN") or OPTIONS.get("api_token") or "").strip()
 
 # Optional iMessage notifications through the Inkbox API.
 INKBOX_URL = os.environ.get("DOWNLOADER_INKBOX_URL", "https://inkbox.ai/api/v1/imessage/messages")
@@ -347,21 +342,6 @@ async def clear(request: web.Request) -> web.Response:
     return web.Response(status=204)
 
 
-@web.middleware
-async def require_token(request: web.Request, handler):
-    """The Ingress port is only reachable through Home Assistant; the external port needs the token."""
-    sockname = request.transport.get_extra_info("sockname") if request.transport else None
-    if sockname and sockname[1] == EXTERNAL_PORT and request.path.startswith("/api/"):
-        if not API_TOKEN:
-            raise web.HTTPForbidden(text="Externer Zugriff ist deaktiviert: bitte einen API-Token setzen")
-        auth = request.headers.get("Authorization", "")
-        token = auth[7:] if auth.lower().startswith("bearer ") else request.query.get("token", "")
-        token = token.strip()
-        if not hmac.compare_digest(token.encode(), API_TOKEN.encode()):
-            raise web.HTTPUnauthorized(text="Ungültiger oder fehlender API-Token")
-    return await handler(request)
-
-
 async def on_startup(app: web.Application) -> None:
     queue: DownloadQueue = app["queue"]
     queue.session = ClientSession(
@@ -370,7 +350,6 @@ async def on_startup(app: web.Application) -> None:
     )
     app["worker"] = asyncio.create_task(queue.worker())
     log.info("Downloads werden gespeichert in %s (Design: %s, %s)", DOWNLOAD_DIR, DESIGN, THEME)
-    log.info("Externer Zugriff (Port %s): %s", EXTERNAL_PORT, "mit API-Token" if API_TOKEN else "deaktiviert, kein API-Token gesetzt")
     if INKBOX_API_KEY and IMESSAGE_TO:
         log.info("iMessage-Benachrichtigungen an %s aktiv", IMESSAGE_TO)
 
@@ -386,7 +365,7 @@ async def on_cleanup(app: web.Application) -> None:
 def main() -> None:
     queue = DownloadQueue()
     queue.load()
-    app = web.Application(middlewares=[require_token])
+    app = web.Application()
     app["queue"] = queue
     app.add_routes(routes)
     app.on_startup.append(on_startup)
@@ -397,8 +376,7 @@ def main() -> None:
 async def serve(app: web.Application) -> None:
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
-    for port in (PORT, EXTERNAL_PORT):
-        await web.TCPSite(runner, "0.0.0.0", port).start()
+    await web.TCPSite(runner, "0.0.0.0", PORT).start()
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

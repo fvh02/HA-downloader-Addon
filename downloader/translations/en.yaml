@@ -8,14 +8,9 @@ configuration:
   download_dir:
     name: Download folder
     description: Folder where files are saved (e.g. /media/downloads or /share/downloads).
-  api_token:
-    name: API token
-    description: Enables direct access on port 8100 (e.g. for your assistant). Leave empty if you only use the sidebar.
   inkbox_api_key:
     name: Inkbox API key
     description: API key of your Inkbox identity, needed for iMessage notifications.
   imessage_to:
     name: iMessage recipient
     description: Your phone number, e.g. +491701234567. Notifications are sent there when a download finishes or fails.
-network:
-  8100/tcp: Direct access with API token (e.g. for your assistant)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0
+
+- API-Token und Port 8100 entfernt. Die Seitenleiste zeigt keine Token-Fehler mehr; das
+  Inkbox Claude Gateway erreicht den Downloader über das interne Netz auf Port 8099.
+
 ## 1.2.2
 
 - API-Token und Inkbox-Key ignorieren Leerzeichen und Zeilenumbrüche am Anfang/Ende

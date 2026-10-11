@@ -20,7 +20,6 @@ beginnt nach dem Neustart von vorn.
 design: modern
 theme: dark
 download_dir: /media/downloads
-api_token: ""
 inkbox_api_key: ""
 imessage_to: ""
 ```
@@ -30,20 +29,16 @@ imessage_to: ""
 | `design`       | `modern`: zentrierte Suchleiste mit Dropdown-Liste. `terminal`: klassischer Terminal-Look, Eingabezeile unten links, Liste darüber. |
 | `theme`        | `dark` oder `light`.                                                                   |
 | `download_dir` | Zielordner. `/media/...` (im Medien-Browser sichtbar) oder `/share/...`.               |
-| `api_token`    | Optional. Schaltet den direkten Zugriff über Port 8100 frei (siehe unten).                   |
 | `inkbox_api_key` | Optional. API-Key deiner Inkbox-Identität für iMessage-Benachrichtigungen.           |
 | `imessage_to`  | Optional. Deine Handynummer (`+491701234567`), an die Benachrichtigungen gehen.        |
 
 Nach einer Änderung das Add-on neu starten und die Seite neu laden.
 
-## Zugriff ohne Home Assistant
+## Zugriff
 
-Standardmäßig ist die Oberfläche nur über die Home-Assistant-Seitenleiste (Ingress) erreichbar.
-Unter **Netzwerk** kann optional Port `8100` freigegeben werden. Dieser Port funktioniert nur
-mit gesetztem `api_token`; ohne Token lehnt er alle Anfragen ab.
-
-Mit Token öffnest du die Seite direkt über `http://<home-assistant>:8100/?token=<api_token>`.
-Über die Seitenleiste ist nie ein Token nötig.
+Die Oberfläche ist über die Home-Assistant-Seitenleiste erreichbar. Andere Add-ons erreichen
+den Downloader im internen Netz von Home Assistant unter `http://<hostname>:8099` (den
+Hostnamen zeigt der Reiter **Info**). Von außen ist er nicht erreichbar.
 
 ## iMessage über deinen Assistenten
 
@@ -59,15 +54,11 @@ der du per iMessage schreibst (am besten ein auf diese Identität beschränkter 
 
 ### Status abfragen und Links hinzufügen
 
-Dein Assistent braucht dafür Zugriff auf die API des Add-ons:
+Das übernimmt das [Inkbox Claude Gateway](https://github.com/fvh02/fabiaiagent) mit seinem
+`downloader`-Befehl. Es spricht den Downloader über das interne Netz an; einzurichten ist dort
+nur die **Downloader-Adresse**.
 
-1. Port `8100` unter **Netzwerk** freigeben und einen `api_token` setzen.
-2. Den Port aus dem Internet erreichbar machen, z. B. per Portweiterleitung im Router
-   (am besten mit HTTPS über einen Reverse-Proxy) oder mit dem Cloudflared-Add-on.
-3. Dem Assistenten die Adresse und den Token als `DOWNLOADER_URL` und `DOWNLOADER_TOKEN`
-   geben (als Secrets, nicht im Klartext in ein Repository).
-
-Die Endpunkte (alle mit `Authorization: Bearer <api_token>`):
+Die Endpunkte:
 
 | Methode  | Pfad                | Zweck                                                         |
 | -------- | ------------------- | ------------------------------------------------------------- |
