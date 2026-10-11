@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2
+
+- API-Token und Inkbox-Key ignorieren Leerzeichen und Zeilenumbrüche am Anfang/Ende
+  (passiert leicht beim Kopieren).
+
 ## 1.2.1
 
 - Fix: In der Seitenleiste erschien „Ungültiger oder fehlender API-Token“, sobald ein Token

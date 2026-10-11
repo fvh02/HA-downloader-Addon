@@ -43,11 +43,11 @@ if THEME not in ("dark", "light"):
     THEME = "dark"
 
 # Access through the external port requires this token; without it that port's API is disabled.
-API_TOKEN = os.environ.get("DOWNLOADER_API_TOKEN") or OPTIONS.get("api_token") or ""
+API_TOKEN = (os.environ.get("DOWNLOADER_API_TOKEN") or OPTIONS.get("api_token") or "").strip()
 
 # Optional iMessage notifications through the Inkbox API.
 INKBOX_URL = os.environ.get("DOWNLOADER_INKBOX_URL", "https://inkbox.ai/api/v1/imessage/messages")
-INKBOX_API_KEY = os.environ.get("DOWNLOADER_INKBOX_API_KEY") or OPTIONS.get("inkbox_api_key") or ""
+INKBOX_API_KEY = (os.environ.get("DOWNLOADER_INKBOX_API_KEY") or OPTIONS.get("inkbox_api_key") or "").strip()
 IMESSAGE_TO = os.environ.get("DOWNLOADER_IMESSAGE_TO") or OPTIONS.get("imessage_to") or ""
 
 
@@ -355,7 +355,8 @@ async def require_token(request: web.Request, handler):
         if not API_TOKEN:
             raise web.HTTPForbidden(text="Externer Zugriff ist deaktiviert: bitte einen API-Token setzen")
         auth = request.headers.get("Authorization", "")
-        token = auth[7:].strip() if auth.lower().startswith("bearer ") else request.query.get("token", "")
+        token = auth[7:] if auth.lower().startswith("bearer ") else request.query.get("token", "")
+        token = token.strip()
         if not hmac.compare_digest(token.encode(), API_TOKEN.encode()):
             raise web.HTTPUnauthorized(text="Ungültiger oder fehlender API-Token")
     return await handler(request)
