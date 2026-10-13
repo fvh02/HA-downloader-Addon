@@ -59,6 +59,32 @@ nicht mehr annimmt, einfach neu exportieren und hochladen.
 Hinweis: Lade nur Videos herunter, die du privat nutzen darfst. YouTube untersagt das Herunterladen
 außerhalb der App in seinen Nutzungsbedingungen – die Nutzung geschieht auf eigene Verantwortung.
 
+## VPN (Proton, kostenlos)
+
+Auf Wunsch laufen alle Downloads über **Proton VPN**. YouTube und andere Seiten sehen dann eine
+Proton-Adresse (z. B. Niederlande) statt deiner IP, und dein Internetanbieter sieht nicht, was du
+lädst. Nur der Video-Downloader nutzt das VPN – Home Assistant und die anderen Add-ons nicht.
+
+1. Auf [proton.me/vpn](https://proton.me/vpn) ein **kostenloses** Konto anlegen (Plan „Free“).
+2. Auf [account.protonvpn.com](https://account.protonvpn.com) → **Downloads** → **WireGuard
+   configuration**: Namen eingeben (z. B. „Home Assistant“), Plattform **GNU/Linux**,
+   **NetShield aus**, bei einem **Free-Server** auf **Create** und die `.conf`-Datei herunterladen.
+3. In Home Assistant den Video-Downloader öffnen und unten bei **🛡 VPN (Proton)** die Datei
+   hochladen. Danach steht dort z. B. „🔒 aktiv · Amsterdam, Niederlande · IP 185.…“.
+
+- **Notbremse:** Fällt das VPN aus, warten die Downloads und starten automatisch, sobald es wieder
+  verbunden ist. Sie laufen nie heimlich über deine eigene IP. Auch Vorschaubilder kommen dann
+  über das VPN.
+- **Ausschalten** löscht die Datei; danach laufen Downloads wieder direkt.
+- Im kostenlosen Proton-Plan ist **ein Gerät gleichzeitig** erlaubt – die Datei nicht zusätzlich
+  auf dem Handy nutzen. Ist ein Free-Server überlastet, einfach eine Datei für einen anderen
+  Server erstellen und hochladen.
+- Die Datei enthält einen privaten Schlüssel: Sie bleibt im privaten Speicher des Add-ons, wird nie
+  angezeigt, und Hochladen/Ausschalten geht nur über Home Assistant.
+- YouTube fragt bei VPN-Adressen manchmal nach einer Bestätigung („kein Bot“). Mit verbundenem
+  YouTube-Konto passiert das seltener; sonst hilft ein anderer Proton-Server.
+- Das VPN ändert nichts daran, was du herunterladen darfst.
+
 ## Konfiguration
 
 | Option          | Beschreibung                                                                 |

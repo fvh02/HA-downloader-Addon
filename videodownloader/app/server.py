@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 import yt_dlp
 from aiohttp import ClientSession, ClientTimeout, web
 
+import vpn
 from access import Gate, is_ingress
 
 OPTIONS_FILE = Path("/data/options.json")
@@ -27,6 +28,7 @@ STATE_FILE = DATA_DIR / "queue.json"
 LIBRARY_FILE = DATA_DIR / "library.json"
 THUMB_DIR = DATA_DIR / "thumbs"
 COOKIE_FILE = DATA_DIR / "youtube-cookies.txt"   # YouTube login (cookies.txt), for Premium and age/member content
+tunnel = vpn.VPN(DATA_DIR)                          # optional Proton VPN for the downloads
 STATIC_DIR = Path(__file__).parent / "static"
 PORT = int(os.environ.get("VIDEO_PORT", "8097"))
 
@@ -173,7 +175,8 @@ def drop_auth(opts: dict) -> None:
 
 def check_youtube() -> tuple[bool, str]:
     """Logged in? The "Watch later" list only opens with a valid login."""
-    opts = {"quiet": True, "no_warnings": True, "skip_download": True, "extract_flat": True, "playlistend": 1, **ydl_auth()}
+    opts = {"quiet": True, "no_warnings": True, "skip_download": True, "extract_flat": True, "playlistend": 1,
+            **ydl_auth(), **tunnel.ydl_options()}
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.extract_info("https://www.youtube.com/playlist?list=WL", download=False)
@@ -254,9 +257,15 @@ class VideoQueue:
 
     # -- probing ---------------------------------------------------------------
     async def probe(self, item: dict) -> None:
+        if not await tunnel.wait_ready(timeout=60):
+            if item in self.items:
+                item.update(status="error", error="VPN nicht verbunden – nichts abgerufen (Kill-Switch). Später erneut versuchen.")
+                self.save()
+            return
+
         def extract():
             opts = {"quiet": True, "no_warnings": True, "skip_download": True, "extract_flat": "in_playlist", "noplaylist": True,
-                    **ydl_auth()}
+                    **ydl_auth(), **tunnel.ydl_options()}
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     return ydl.sanitize_info(ydl.extract_info(item["url"], download=False))
@@ -346,7 +355,7 @@ class VideoQueue:
             # (audio extraction deletes its intermediate file, which must not be another download).
             "outtmpl": str(DOWNLOAD_DIR / ("%(title).150B [%(id)s]" + QUALITY_SUFFIX.get(quality, "") + ".%(ext)s")),
             "progress_hooks": [progress], "postprocessor_hooks": [postprocess],
-            "windowsfilenames": True, "overwrites": False, "continuedl": True, **ydl_auth(),
+            "windowsfilenames": True, "overwrites": False, "continuedl": True, **ydl_auth(), **tunnel.ydl_options(),
         }
         if quality == "audio":
             opts["postprocessors"] = [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}]
@@ -388,6 +397,13 @@ class VideoQueue:
                 self.wakeup.clear()
                 await self.wakeup.wait()
                 continue
+            if not await tunnel.wait_ready():
+                # VPN switched on but down: wait instead of using the home connection.
+                item["note"] = "wartet auf das VPN …"
+                self.save()
+                await asyncio.sleep(15)
+                continue
+            item.pop("note", None)
             item.update(status="downloading", downloaded=0, speed=0, eta=None, error=None)
             self.current = item
             self.save()
@@ -484,6 +500,29 @@ def library_list(queue: VideoQueue) -> list[dict]:
     return entries
 
 
+async def fetch_image(url: str, session: ClientSession) -> bytes | None:
+    """A preview image: through the VPN when it is on (never directly then), otherwise directly."""
+    if not str(url).startswith(("http://", "https://")):
+        return None
+    if tunnel.enabled:
+        if not await tunnel.wait_ready():
+            return None
+
+        def get():
+            with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "socket_timeout": 20, **tunnel.ydl_options()}) as ydl:
+                with ydl.urlopen(url) as resp:
+                    return resp.read(5_000_000)
+        try:
+            return await asyncio.to_thread(get)
+        except Exception:  # noqa: BLE001
+            return None
+    try:
+        async with session.get(url, timeout=ClientTimeout(total=20)) as resp:
+            return await resp.read() if resp.status == 200 else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 async def make_thumb(queue: VideoQueue, path: Path, session: ClientSession) -> Path | None:
     rel = str(path.relative_to(DOWNLOAD_DIR))
     THUMB_DIR.mkdir(parents=True, exist_ok=True)
@@ -491,19 +530,15 @@ async def make_thumb(queue: VideoQueue, path: Path, session: ClientSession) -> P
     if target.exists():
         return target
     meta = queue.library.get(rel) or {}
-    if meta.get("thumbnail"):
-        try:
-            async with session.get(meta["thumbnail"], timeout=ClientTimeout(total=20)) as resp:
-                if resp.status == 200:
-                    raw = target.with_suffix(".src")
-                    raw.write_bytes(await resp.read())
-                    # normalise (webp etc.) to a small jpeg
-                    await asyncio.to_thread(subprocess.run, ["ffmpeg", "-y", "-v", "error", "-i", str(raw), "-vf", "scale=480:-2", str(target)], timeout=30)
-                    raw.unlink(missing_ok=True)
-                    if target.exists():
-                        return target
-        except Exception:  # noqa: BLE001
-            pass
+    data = await fetch_image(meta["thumbnail"], session) if meta.get("thumbnail") else None
+    if data:
+        raw = target.with_suffix(".src")
+        raw.write_bytes(data)
+        # normalise (webp etc.) to a small jpeg
+        await asyncio.to_thread(subprocess.run, ["ffmpeg", "-y", "-v", "error", "-i", str(raw), "-vf", "scale=480:-2", str(target)], timeout=30)
+        raw.unlink(missing_ok=True)
+        if target.exists():
+            return target
     if path.suffix.lower() in VIDEO_EXT:
         at = max(1.0, (meta.get("duration") or 10) * 0.1)
         await asyncio.to_thread(subprocess.run, ["ffmpeg", "-y", "-v", "error", "-ss", str(at), "-i", str(path), "-frames:v", "1", "-vf", "scale=480:-2", str(target)], timeout=60)
@@ -523,7 +558,10 @@ def page(name: str) -> web.Response:
 
 
 def public(item: dict) -> dict:
-    return {k: v for k, v in item.items() if not k.startswith("_")}
+    data = {k: v for k, v in item.items() if not k.startswith("_")}
+    if tunnel.enabled and data.get("thumbnail"):
+        data["thumbnail"] = f"api/preview/{item['id']}"     # fetched through the VPN, not by the browser
+    return data
 
 
 @routes.get("/")
@@ -608,6 +646,58 @@ async def status(request):
         lines.append(f"✅ {done} fertig")
     return web.json_response({"summary": "\n".join(lines) or "Keine Videos in der Warteschlange.",
                               "items": [public(i) for i in queue.items]})
+
+
+@routes.get("/api/preview/{item_id}")
+async def preview(request):
+    queue: VideoQueue = request.app["queue"]
+    item = queue.get(request.match_info["item_id"])
+    if not item or not item.get("thumbnail"):
+        raise web.HTTPNotFound()
+    cache = request.app.setdefault("previews", {})
+    data = cache.get(item["id"]) or await fetch_image(item["thumbnail"], request.app["session"])
+    if not data:
+        raise web.HTTPNotFound()
+    cache[item["id"]] = data
+    while len(cache) > 100:
+        cache.pop(next(iter(cache)))
+    return web.Response(body=data, content_type="image/jpeg" if data[:2] == b"\xff\xd8" else "image/webp",
+                        headers={"Cache-Control": "max-age=86400"})
+
+
+@routes.get("/api/vpn")
+async def vpn_status(request):
+    return web.json_response({**tunnel.info(), "can_edit": is_ingress(request)})
+
+
+@routes.post("/api/vpn")
+async def vpn_upload(request):
+    """Upload the WireGuard file from Proton (Home Assistant only: it contains a private key)."""
+    if not is_ingress(request):
+        return web.json_response({"error": "Das VPN lässt sich nur in Home Assistant einrichten"}, status=403)
+    text = ""
+    if request.content_type.startswith("multipart/"):
+        async for part in await request.multipart():
+            if part.name == "file":
+                text = (await part.read(decode=False))[:100_000].decode("utf-8", "replace")
+    else:
+        text = (await request.text())[:100_000]
+    try:
+        return web.json_response(await tunnel.install(text))
+    except vpn.VPNError as err:
+        return web.json_response({"error": str(err)}, status=400)
+
+
+@routes.post("/api/vpn/check")
+async def vpn_check(_):
+    return web.json_response(await tunnel.check())
+
+
+@routes.delete("/api/vpn")
+async def vpn_remove(request):
+    if not is_ingress(request):
+        return web.json_response({"error": "Nur in Home Assistant"}, status=403)
+    return web.json_response(await tunnel.remove())
 
 
 @routes.get("/api/youtube")
@@ -737,6 +827,11 @@ async def on_startup(app):
     app["session"] = ClientSession(headers={"User-Agent": "Mozilla/5.0 (HomeAssistant Video-Downloader)"})
     app["worker"] = asyncio.create_task(app["queue"].worker())
     log.info("Video-Downloader: Ordner %s, Design %s/%s, yt-dlp %s", DOWNLOAD_DIR, DESIGN, THEME, yt_dlp.version.__version__)
+    if tunnel.enabled:
+        try:
+            await tunnel.start()
+        except vpn.VPNError as err:
+            log.error("VPN-Datei ungültig: %s", err)
     for leftover in DATA_DIR.glob(".cookies-*.txt"):
         leftover.unlink(missing_ok=True)
     if COOKIE_FILE.exists():
@@ -745,6 +840,7 @@ async def on_startup(app):
 
 
 async def on_cleanup(app):
+    await tunnel.stop()
     app["worker"].cancel()
     if app["queue"].current:
         app["queue"].current["_cancel"] = True

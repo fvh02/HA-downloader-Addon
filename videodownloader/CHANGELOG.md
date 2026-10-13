@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0
+
+- **VPN mit Proton (kostenlos):** In Home Assistant lässt sich unten auf der Downloader-Seite die
+  WireGuard-Datei eines (kostenlosen) Proton-VPN-Kontos hochladen. Danach laufen alle Abfragen,
+  Downloads und Vorschaubilder nur noch über Proton – YouTube & Co. sehen nicht mehr deine IP.
+  Der Rest von Home Assistant bleibt unberührt.
+- **Notbremse:** Ist das VPN eingeschaltet, aber nicht verbunden, warten die Downloads, statt über
+  deinen eigenen Anschluss zu laufen. Die Seite zeigt Land und IP, über die geladen wird.
+
 ## 1.2.0
 
 - **YouTube-Konto (z. B. Premium):** Auf der Downloader-Seite lässt sich in Home Assistant eine

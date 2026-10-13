@@ -179,6 +179,7 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
       <div class="message" id="message"></div>
     </div>
     <div class="footer" id="footer"></div>
+    <section class="yt" id="vpn" hidden></section>
     <section class="yt" id="yt" hidden></section>
   </main>
 
@@ -375,6 +376,45 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
       if (del) del.onclick = async () => { if (!confirm("YouTube-Konto trennen? Die gespeicherte Anmeldung wird gelöscht.")) return; try { ytRender(await ytCall("DELETE")); } catch (e) { ytRender(d, e.message); } };
     }
     fetch("api/youtube").then(r => r.json()).then(d => ytRender(d)).catch(() => {});
+  
+    // ---------- Proton VPN ----------
+    async function vpnCall(method, body, path = "") {
+      const res = await fetch("api/vpn" + path, { method, body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Fehler " + res.status);
+      return data;
+    }
+    function vpnRender(d, note = "") {
+      const box = $("vpn"); box.hidden = false;
+      const where = [d.city, d.country].filter(Boolean).join(", ");
+      const state = !d.enabled ? `<span class="sub">aus – Downloads laufen über deinen Anschluss</span>`
+        : d.ok ? `<span class="ok">🔒 aktiv${where ? " · " + UI.esc(where) : ""}${d.ip ? ` · IP ${UI.esc(d.ip)}` : ""}</span>`
+        : d.ok === false ? `<span class="bad">⚠ ${UI.esc(d.message || "keine Verbindung")} – Downloads warten</span>`
+        : `<span class="sub">verbinde …</span>`;
+      const meta = d.enabled ? `<div class="sub">Server ${UI.esc(d.server || "Proton")}${d.checked ? ` · geprüft ${new Date(d.checked * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}` : ""}</div>` : "";
+      const actions = !d.can_edit ? (d.enabled ? `<button id="vpnCheck">Prüfen</button>` : `<span class="sub">Einrichten geht in Home Assistant.</span>`)
+        : d.enabled ? `<button id="vpnCheck">Prüfen</button><label class="up">Andere Datei<input type="file" id="vpnFile" accept=".conf,text/plain"></label><button id="vpnDel">Ausschalten</button>`
+        : `<label class="up">WireGuard-Datei hochladen<input type="file" id="vpnFile" accept=".conf,text/plain"></label>`;
+      box.innerHTML = `<div class="row"><div class="grow"><b>🛡 VPN (Proton)</b> ${state}${meta}</div>${actions}</div>
+        ${note ? `<div class="sub" style="margin-top:8px">${UI.esc(note)}</div>` : ""}
+        ${d.can_edit ? `<details><summary>So richtest du Proton VPN (kostenlos) ein</summary><ol>
+          <li>Auf <b>proton.me/vpn</b> ein kostenloses Konto anlegen (Plan „Free“).</li>
+          <li>Auf <b>account.protonvpn.com</b> → <b>Downloads</b> → <b>WireGuard configuration</b>: einen Namen eingeben (z. B. „Home Assistant“), Plattform <b>GNU/Linux</b>, <b>NetShield aus</b>, dann bei einem <b>Free-Server</b> auf <b>Create</b> und die <b>.conf</b>-Datei herunterladen.</li>
+          <li>Die Datei hier hochladen – fertig. Danach laufen alle Downloads, Abfragen und Vorschaubilder nur noch über Proton.</li>
+        </ol><div class="sub">Fällt das VPN aus, warten die Downloads, statt über deine eigene IP zu laufen. Im kostenlosen Proton-Plan geht nur ein Gerät gleichzeitig – nutze die Datei nicht zusätzlich auf dem Handy. Die Datei enthält einen privaten Schlüssel: Sie bleibt nur auf deinem Home Assistant.</div></details>` : ""}`;
+      const file = $("vpnFile");
+      if (file) file.onchange = async () => {
+        if (!file.files[0]) return;
+        const form = new FormData(); form.append("file", file.files[0]);
+        vpnRender(d, "Wird eingerichtet und verbunden …");
+        try { vpnRender(await vpnCall("POST", form)); } catch (e) { vpnRender(d, e.message); }
+      };
+      const check = $("vpnCheck");
+      if (check) check.onclick = async () => { vpnRender(d, "Prüfe die Verbindung …"); try { vpnRender(await vpnCall("POST", undefined, "/check")); } catch (e) { vpnRender(d, e.message); } };
+      const del = $("vpnDel");
+      if (del) del.onclick = async () => { if (!confirm("VPN ausschalten? Downloads laufen dann wieder über deinen Anschluss.")) return; try { vpnRender(await vpnCall("DELETE")); } catch (e) { vpnRender(d, e.message); } };
+    }
+    fetch("api/vpn").then(r => r.json()).then(d => vpnRender(d)).catch(() => {});
   </script>
 </body>
 </html>
