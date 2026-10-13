@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 import yt_dlp
 from aiohttp import ClientSession, ClientTimeout, web
 
+import finder
 import vpn
 from access import Gate, is_ingress
 
@@ -263,22 +264,27 @@ class VideoQueue:
                 self.save()
             return
 
-        def extract():
+        def extract(url: str, headers: dict | None = None):
             opts = {"quiet": True, "no_warnings": True, "skip_download": True, "extract_flat": "in_playlist", "noplaylist": True,
                     **ydl_auth(), **tunnel.ydl_options()}
+            if headers:
+                opts["http_headers"] = headers
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
-                    return ydl.sanitize_info(ydl.extract_info(item["url"], download=False))
+                    return ydl.sanitize_info(ydl.extract_info(url, download=False))
             finally:
                 drop_auth(opts)
 
         try:
-            info = await asyncio.to_thread(extract)
+            info = await asyncio.to_thread(extract, item["url"])
         except Exception as err:  # noqa: BLE001
-            if item in self.items:
-                item.update(status="error", error=clean_error(err))
-                self.save()
-            return
+            # Not a site yt-dlp knows: look for the video on the page itself.
+            info = await self.discover(item, extract) if unsupported(err) else None
+            if info is None:
+                if item in self.items:
+                    item.update(status="error", error=item.pop("_why", None) or clean_error(err))
+                    self.save()
+                return
         if item not in self.items:
             return
         if info.get("_type") == "playlist":
@@ -300,6 +306,65 @@ class VideoQueue:
                 item["status"] = "queued"
         self.save()
         self.wakeup.set()
+
+    async def discover(self, item: dict, extract) -> dict | None:
+        """Page scan, then browser scan (both through the VPN when it is on). Sets item["source"]."""
+        page_url = item["url"]
+        item["note"] = "suche das Video auf der Seite …"
+        self.save()
+        title = ""
+        try:
+            text, final = await asyncio.to_thread(finder.fetch_page, page_url, tunnel.ydl_options())
+            found = finder.scan_html(text, final)
+            title = found["title"]
+            # Embedded players (e.g. Vimeo, Dailymotion) are often known to yt-dlp.
+            for frame in found["iframes"]:
+                try:
+                    info = await asyncio.to_thread(extract, frame, {"Referer": final})
+                    item["source"] = {"url": frame, "headers": {"Referer": final}, "how": "eingebetteter Player"}
+                    return self._discovered(item, info, title)
+                except Exception:  # noqa: BLE001
+                    continue
+            for media in found["media"][:4]:
+                headers = {"Referer": final, "User-Agent": finder.UA}
+                try:
+                    info = await asyncio.to_thread(extract, media, headers)
+                    item["source"] = {"url": media, "headers": headers, "how": "Video-Link auf der Seite"}
+                    return self._discovered(item, info, title)
+                except Exception:  # noqa: BLE001
+                    continue
+        except Exception as err:  # noqa: BLE001
+            log.info("Seiten-Scan fehlgeschlagen für %s: %s", page_url, str(err)[:160])
+        if not await tunnel.wait_ready(timeout=60):
+            item["_why"] = "VPN nicht verbunden – nichts abgerufen (Kill-Switch)"
+            return None
+        item["note"] = "öffne die Seite im Browser und starte den Player …"
+        self.save()
+        try:
+            result = await asyncio.to_thread(finder.browser_scan, page_url, tunnel.ydl_options().get("proxy"))
+        except Exception as err:  # noqa: BLE001
+            log.warning("Browser-Scan fehlgeschlagen für %s: %s", page_url, err)
+            result = {"media": [], "error": "Browser-Suche fehlgeschlagen"}
+        log.info("Browser-Scan %s: %s", page_url, finder.describe(result))
+        for media in result.get("media", [])[:5]:
+            try:
+                info = await asyncio.to_thread(extract, media, result["headers"])
+                item["source"] = {"url": media, "headers": result["headers"], "how": "im Browser gefunden"}
+                return self._discovered(item, info, result.get("title") or title)
+            except Exception:  # noqa: BLE001
+                continue
+        item.pop("note", None)
+        item["_why"] = (result.get("error") or "Auf dieser Seite wurde kein Video gefunden "
+                        "(oder es ist kopiergeschützt, z. B. Netflix/Disney+)")
+        return None
+
+    def _discovered(self, item: dict, info: dict, title: str) -> dict:
+        item.pop("note", None)
+        if title and (not info.get("title") or info.get("extractor_key") == "Generic" or info.get("title") in ("index", "master", "playlist")):
+            info["title"] = title
+        info.setdefault("webpage_url", item["url"])
+        log.info("Video gefunden (%s): %s", item["source"]["how"], item["source"]["url"][:200])
+        return info
 
     def _apply_probe(self, item: dict, info: dict) -> None:
         heights = sorted({f.get("height") for f in info.get("formats") or [] if f.get("height")}, reverse=True)
@@ -367,8 +432,17 @@ class VideoQueue:
             drop_auth(opts)
 
     def _run(self, opts: dict, item: dict, result: dict, quality: str):
+        source = item.get("source") or {}
+        if source.get("headers"):
+            opts["http_headers"] = source["headers"]
+        if source and item.get("title"):
+            # Found on a page: name the file after the page, not after "master.m3u8".
+            name = yt_dlp.utils.sanitize_filename(item["title"], restricted=False)[:150]
+            opts["outtmpl"] = opts["outtmpl"].replace("%(title).150B", name.replace("%", "%%"))
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(item["url"], download=True)
+            info = ydl.extract_info(source.get("url") or item["url"], download=True)
+            if item.get("title") and (info.get("extractor_key") == "Generic" or source):
+                info["title"] = item["title"]
             path = result.get("path")
             if not path:
                 downloads = info.get("requested_downloads") or []
@@ -435,6 +509,12 @@ class VideoQueue:
 def is_partial(name: str) -> bool:
     """yt-dlp's temporary files: *.part, *.ytdl and separate streams like 'Title [id].f137.mp4'."""
     return name.endswith((".part", ".ytdl")) or ".part-Frag" in name or bool(re.search(r"\.f\d+[\w-]*\.\w+$", name)) or ".temp." in name
+
+
+def unsupported(err: Exception) -> bool:
+    """yt-dlp does not know the site, or found no video on it."""
+    text = str(err).lower()
+    return any(t in text for t in ("unsupported url", "no video formats found", "no media found", "unable to extract"))
 
 
 def clean_error(err: Exception) -> str:

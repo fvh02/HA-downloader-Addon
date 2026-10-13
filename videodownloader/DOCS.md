@@ -33,6 +33,24 @@ Speicherplatz noch frei ist.
   (Option `access_code`), einmal pro Gerät. Ohne gesetzten Code ist der Zugriff aus dem
   Internet gesperrt. Anleitung: [Über das Internet erreichbar machen](https://github.com/fvh02/HA-downloader-Addon/blob/HEAD/TUNNEL.md)
 
+## Videos von beliebigen Webseiten
+
+Der Downloader kennt über 1.800 Seiten direkt (YouTube, Vimeo, Dailymotion, Twitch, Instagram,
+TikTok, X, Mediatheken von ARD/ZDF und viele mehr). Bei allen anderen Seiten einfach den Link der
+Seite einfügen, auf der das Video läuft:
+
+1. **Seiten-Scan:** Der Downloader lädt die Seite und sucht darin nach Videos (`<video>`,
+   MP4-/HLS-/DASH-Links, eingebettete Player).
+2. **Browser-Scan:** Findet er so nichts, öffnet ein unsichtbarer Browser die Seite, startet den
+   Player und fängt die Video-Adresse ab – das klappt auch bei Playern, die das Video erst per
+   JavaScript laden. Das dauert bis zu einer halben Minute.
+
+Die Datei bekommt den Titel der Seite. Mit eingeschaltetem VPN laufen auch Seiten-Scan und Browser
+nur über Proton.
+
+Was nicht geht: **kopiergeschützte** Streams (Netflix, Disney+, Prime Video, Sky …) und Videos
+hinter einem Login, das der Downloader nicht kennt.
+
 ## YouTube-Konto (Premium)
 
 Mit deinem YouTube-Konto lädt der Downloader auch Inhalte, die eine Anmeldung brauchen:

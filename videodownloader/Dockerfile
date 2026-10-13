@@ -29,6 +29,10 @@ RUN case "${TARGETARCH}" in \
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+# Headless Chromium for the video search on pages yt-dlp does not know (only the small headless shell).
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+RUN playwright install --with-deps --only-shell chromium && rm -rf /var/lib/apt/lists/*
+
 COPY app /app
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh

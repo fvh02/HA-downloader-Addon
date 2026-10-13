@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.0
+
+- **Videos von (fast) jeder Webseite:** Kennt yt-dlp eine Seite nicht, sucht der Downloader das
+  Video selbst – zuerst im Quelltext (`<video>`, MP4/HLS/DASH-Links, og:video, eingebettete Player),
+  dann in einem unsichtbaren Browser, der die Seite öffnet, den Player startet und die
+  Video-Adresse abfängt. Die Datei bekommt den Titel der Seite.
+- Auch die Video-Suche und der Browser laufen über das VPN, wenn es eingeschaltet ist (inklusive
+  Namensauflösung; WebRTC/QUIC sind gesperrt). Ist das VPN aus, wird nichts geöffnet.
+- Die Liste zeigt, was gerade passiert („suche das Video auf der Seite …“).
+
 ## 1.3.0
 
 - **VPN mit Proton (kostenlos):** In Home Assistant lässt sich unten auf der Downloader-Seite die

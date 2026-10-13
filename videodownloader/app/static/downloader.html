@@ -203,8 +203,9 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
     function statusText(item, position) {
       const pct = item.total ? Math.min(100, Math.floor(item.downloaded / item.total * 100)) : null;
       switch (item.status) {
-        case "probing": return T ? "analysiere …" : "Wird analysiert …";
-        case "queued": return position === 0 ? (T ? "als nächstes" : "Als Nächstes") : (T ? "" : `In Warteschlange · Position ${position + 1}`);
+        case "probing": return item.note ? (T ? item.note : item.note.charAt(0).toUpperCase() + item.note.slice(1)) : (T ? "analysiere …" : "Wird analysiert …");
+        case "queued": if (item.note) return T ? item.note : item.note.charAt(0).toUpperCase() + item.note.slice(1);
+          return position === 0 ? (T ? "als nächstes" : "Als Nächstes") : (T ? "" : `In Warteschlange · Position ${position + 1}`);
         case "downloading": {
           const speed = item.speed ? UI.size(item.speed) + "/s" : "";
           const eta = item.eta ? (T ? " eta " : " · noch ") + UI.duration(item.eta) : "";
