@@ -88,7 +88,8 @@ lädst. Nur der Video-Downloader nutzt das VPN – Home Assistant und die andere
    configuration**: Namen eingeben (z. B. „Home Assistant“), Plattform **GNU/Linux**,
    **NetShield aus**, bei einem **Free-Server** auf **Create** und die `.conf`-Datei herunterladen.
 3. In Home Assistant den Video-Downloader öffnen und unten bei **🛡 VPN (Proton)** die Datei
-   hochladen. Danach steht dort z. B. „🔒 aktiv · Amsterdam, Niederlande · IP 185.…“.
+   hochladen – oder die Datei öffnen, den ganzen Text kopieren und über **Text einfügen**
+   einfügen (praktisch am Handy). Danach steht dort z. B. „🔒 aktiv · Amsterdam, Niederlande · IP 185.…“.
 
 - **Notbremse:** Fällt das VPN aus, warten die Downloads und starten automatisch, sobald es wieder
   verbunden ist. Sie laufen nie heimlich über deine eigene IP. Auch Vorschaubilder kommen dann

@@ -150,6 +150,10 @@
     .yt ol { margin: 10px 0 4px; padding-left: 20px; color: var(--muted); }
     .yt ol li { margin: 4px 0; }
     .yt ol b { color: var(--text, inherit); }
+    .yt .paste { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .yt .paste textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); background: var(--surface-2); color: inherit;
+      border-radius: 12px; padding: 10px; font: .8rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+    .yt .paste .send { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 650; }
     .yt details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   </style>
 </head>
@@ -338,6 +342,17 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
     refresh();
     setInterval(refresh, 1000);
   
+
+    // Paste instead of upload: a text box below the section; the server checks the content.
+    function pasteBox(box, placeholder, onSend) {
+      if (box.querySelector(".paste")) return;
+      box.insertAdjacentHTML("beforeend", `<div class="paste"><textarea rows="7" spellcheck="false" autocapitalize="off" autocomplete="off"
+        placeholder="${placeholder}"></textarea><div class="row"><button class="send">Speichern</button><button class="cancel">Abbrechen</button></div></div>`);
+      const area = box.querySelector(".paste textarea");
+      area.focus();
+      box.querySelector(".paste .cancel").onclick = () => box.querySelector(".paste").remove();
+      box.querySelector(".paste .send").onclick = () => { const text = area.value.trim(); if (text) onSend(text); };
+    }
     // ---------- YouTube account (cookies) ----------
     const fmtDate = ts => new Date(ts * 1000).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
     async function ytCall(method, body) {
@@ -353,15 +368,15 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
         : `<span class="ok">✓ verbunden${d.ok ? " – Premium-Qualität und Premium-Inhalte" : ""}</span>`;
       const meta = d.connected ? `<div class="sub">seit ${fmtDate(d.since)}${d.expires ? ` · Anmeldung gültig bis ${fmtDate(d.expires)}` : ""}${d.checked ? ` · geprüft ${new Date(d.checked * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}` : ""}</div>` : "";
       const actions = !d.can_edit ? `<span class="sub">Verbinden und Trennen geht in Home Assistant (Seitenleiste → Videos).</span>`
-        : d.connected ? `<button id="ytCheck">Prüfen</button><label class="up">Neu hochladen<input type="file" id="ytFile" accept=".txt,text/plain"></label><button id="ytDel">Trennen</button>`
-        : `<label class="up">cookies.txt hochladen<input type="file" id="ytFile" accept=".txt,text/plain"></label>`;
+        : d.connected ? `<button id="ytCheck">Prüfen</button><label class="up">Neu hochladen<input type="file" id="ytFile"></label><button id="ytPaste">Text einfügen</button><button id="ytDel">Trennen</button>`
+        : `<label class="up">cookies.txt hochladen<input type="file" id="ytFile"></label><button id="ytPaste">Text einfügen</button>`;
       box.innerHTML = `<div class="row"><div class="grow"><b>▶ YouTube-Konto</b> ${state}${meta}</div>${actions}</div>
         ${note ? `<div class="sub" style="margin-top:8px">${UI.esc(note)}</div>` : ""}
         ${d.can_edit ? `<details ${d.connected ? "" : "open"}><summary>So verbindest du dein YouTube-Premium-Konto</summary><ol>
           <li>Am PC ein <b>privates Fenster</b> öffnen (Chrome: Inkognito, Firefox: Privates Fenster) und auf <b>youtube.com</b> mit deinem Premium-Konto anmelden.</li>
           <li>Mit der Browser-Erweiterung <b>„Get cookies.txt LOCALLY“</b> (Chrome/Edge) bzw. <b>„cookies.txt“</b> (Firefox) die Cookies von youtube.com als <b>cookies.txt</b> speichern. Die Erweiterung muss im privaten Fenster erlaubt sein.</li>
           <li>Das private Fenster <b>schließen, ohne dich abzumelden</b> – sonst wird die Anmeldung ungültig.</li>
-          <li>Die Datei hier hochladen. Sie bleibt nur auf deinem Home Assistant und wird nie wieder angezeigt.</li>
+          <li>Die Datei hier hochladen – oder sie öffnen, den ganzen Inhalt kopieren und über <b>Text einfügen</b> einfügen. Sie bleibt nur auf deinem Home Assistant und wird nie wieder angezeigt.</li>
         </ol><div class="sub">YouTube erlaubt Programmen keine Anmeldung mit Passwort mehr, deshalb dieser Weg. Lade nur Videos herunter, die du für dich privat nutzen darfst.</div></details>` : ""}`;
       const file = $("ytFile");
       if (file) file.onchange = async () => {
@@ -371,6 +386,12 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
         try { const r = await ytCall("POST", form); ytRender(r, r.ok ? "Fertig – neue Downloads nutzen dein Konto." : ""); }
         catch (e) { ytRender(d, e.message); }
       };
+      const paste = $("ytPaste");
+      if (paste) paste.onclick = () => pasteBox($("yt"), "Inhalt der cookies.txt hier einfügen", async text => {
+        ytRender(d, "Wird gespeichert und bei YouTube geprüft …");
+        try { const r = await ytCall("POST", text); ytRender(r, r.ok ? "Fertig – neue Downloads nutzen dein Konto." : ""); }
+        catch (e) { ytRender(d, e.message); }
+      });
       const check = $("ytCheck");
       if (check) check.onclick = async () => { ytRender(d, "Prüfe bei YouTube …"); try { ytRender(await ytCall("CHECK")); } catch (e) { ytRender(d, e.message); } };
       const del = $("ytDel");
@@ -394,14 +415,14 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
         : `<span class="sub">verbinde …</span>`;
       const meta = d.enabled ? `<div class="sub">Server ${UI.esc(d.server || "Proton")}${d.checked ? ` · geprüft ${new Date(d.checked * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}` : ""}</div>` : "";
       const actions = !d.can_edit ? (d.enabled ? `<button id="vpnCheck">Prüfen</button>` : `<span class="sub">Einrichten geht in Home Assistant.</span>`)
-        : d.enabled ? `<button id="vpnCheck">Prüfen</button><label class="up">Andere Datei<input type="file" id="vpnFile" accept=".conf,text/plain"></label><button id="vpnDel">Ausschalten</button>`
-        : `<label class="up">WireGuard-Datei hochladen<input type="file" id="vpnFile" accept=".conf,text/plain"></label>`;
+        : d.enabled ? `<button id="vpnCheck">Prüfen</button><label class="up">Andere Datei<input type="file" id="vpnFile"></label><button id="vpnPaste">Text einfügen</button><button id="vpnDel">Ausschalten</button>`
+        : `<label class="up">WireGuard-Datei hochladen<input type="file" id="vpnFile"></label><button id="vpnPaste">Text einfügen</button>`;
       box.innerHTML = `<div class="row"><div class="grow"><b>🛡 VPN (Proton)</b> ${state}${meta}</div>${actions}</div>
         ${note ? `<div class="sub" style="margin-top:8px">${UI.esc(note)}</div>` : ""}
         ${d.can_edit ? `<details><summary>So richtest du Proton VPN (kostenlos) ein</summary><ol>
           <li>Auf <b>proton.me/vpn</b> ein kostenloses Konto anlegen (Plan „Free“).</li>
           <li>Auf <b>account.protonvpn.com</b> → <b>Downloads</b> → <b>WireGuard configuration</b>: einen Namen eingeben (z. B. „Home Assistant“), Plattform <b>GNU/Linux</b>, <b>NetShield aus</b>, dann bei einem <b>Free-Server</b> auf <b>Create</b> und die <b>.conf</b>-Datei herunterladen.</li>
-          <li>Die Datei hier hochladen – fertig. Danach laufen alle Downloads, Abfragen und Vorschaubilder nur noch über Proton.</li>
+          <li>Die Datei hier hochladen – oder am Handy die .conf öffnen (z. B. in der Dateien-App), den ganzen Text kopieren und über <b>Text einfügen</b> einfügen. Danach laufen alle Downloads, Abfragen und Vorschaubilder nur noch über Proton.</li>
         </ol><div class="sub">Fällt das VPN aus, warten die Downloads, statt über deine eigene IP zu laufen. Im kostenlosen Proton-Plan geht nur ein Gerät gleichzeitig – nutze die Datei nicht zusätzlich auf dem Handy. Die Datei enthält einen privaten Schlüssel: Sie bleibt nur auf deinem Home Assistant.</div></details>` : ""}`;
       const file = $("vpnFile");
       if (file) file.onchange = async () => {
@@ -410,6 +431,11 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
         vpnRender(d, "Wird eingerichtet und verbunden …");
         try { vpnRender(await vpnCall("POST", form)); } catch (e) { vpnRender(d, e.message); }
       };
+      const paste = $("vpnPaste");
+      if (paste) paste.onclick = () => pasteBox($("vpn"), "[Interface]\nPrivateKey = …\nAddress = …\n\n[Peer]\nPublicKey = …\nEndpoint = …", async text => {
+        vpnRender(d, "Wird eingerichtet und verbunden …");
+        try { vpnRender(await vpnCall("POST", text)); } catch (e) { vpnRender(d, e.message); }
+      });
       const check = $("vpnCheck");
       if (check) check.onclick = async () => { vpnRender(d, "Prüfe die Verbindung …"); try { vpnRender(await vpnCall("POST", undefined, "/check")); } catch (e) { vpnRender(d, e.message); } };
       const del = $("vpnDel");

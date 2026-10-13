@@ -1,5 +1,5 @@
 name: Video-Downloader
-version: "1.4.0"
+version: "1.4.1"
 slug: videodownloader
 description: Videos von YouTube und beliebigen Webseiten in wählbarer Qualität herunterladen – mit Mediathek und optional über Proton VPN
 url: https://github.com/fvh02/HA-downloader-Addon

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.1
+
+- Die WireGuard-Datei (.conf) und die cookies.txt lassen sich am iPhone wieder auswählen – iOS
+  hatte unbekannte Dateitypen ausgegraut. Neu: **Text einfügen** als Alternative zum Hochladen.
+
 ## 1.4.0
 
 - **Videos von (fast) jeder Webseite:** Kennt yt-dlp eine Seite nicht, sucht der Downloader das
