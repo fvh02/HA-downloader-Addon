@@ -1,0 +1,10 @@
+configuration:
+  start_url:
+    name: Startseite
+    description: Seite, die Chrome beim Start öffnet.
+  resolution:
+    name: Bildschirmgröße
+    description: Startgröße des Browserfensters. Beim Öffnen passt sie sich automatisch an dein Gerät an (PC oder Handy).
+  download_dir:
+    name: Download-Ordner
+    description: Dorthin speichert Chrome Downloads (z. B. /media/downloads/browser – im Medien-Browser von Home Assistant sichtbar).

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0f1218; color: #e8ebf2; font: 15px system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  p { color: #9aa3b5; }
+</style>
+</head>
+<body>
+<div>
+  <h2>🌐 Browser wird geöffnet …</h2>
+  <p>Falls nichts passiert, Seite neu laden.</p>
+</div>
+<script>
+  // noVNC builds the WebSocket address from "path" (without leading slash). Behind Home Assistant
+  // Ingress the add-on lives under /api/hassio_ingress/<token>/, so take the current folder.
+  const base = location.pathname.replace(/^\//, "").replace(/[^/]*$/, "");
+  const params = new URLSearchParams({
+    autoconnect: "true", reconnect: "true", reconnect_delay: "1500", resize: "remote",
+    show_dot: "true", path: base + "websockify", quality: "7", compression: "2",
+  });
+  location.replace("novnc/vnc.html?" + params);
+</script>
+</body>
+</html>

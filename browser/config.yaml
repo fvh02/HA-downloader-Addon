@@ -1,0 +1,23 @@
+name: Browser
+version: "1.0.0"
+slug: browser
+description: Google Chrome im Home Assistant – am PC und Handy bedienbar, mit gespeicherten Logins und Downloads in /media
+url: https://github.com/fvh02/HA-downloader-Addon
+image: ghcr.io/fvh02/{arch}-ha-browser
+arch:
+  - amd64
+init: false
+ingress: true
+ingress_port: 8096
+panel_icon: mdi:google-chrome
+panel_title: Browser
+map:
+  - media:rw
+options:
+  start_url: https://www.google.de
+  resolution: "1280x800"
+  download_dir: /media/downloads/browser
+schema:
+  start_url: url
+  resolution: list(1280x800|1366x768|1600x900|1920x1080|1024x768|800x1280|1080x1920)
+  download_dir: str

@@ -30,8 +30,9 @@ Details zur Konfiguration stehen in [`downloader/DOCS.md`](downloader/DOCS.md).
 | ------ | ------------ |
 | [Downloader](downloader/DOCS.md) | Dateien per Link in eine Warteschlange legen und nacheinander herunterladen. |
 | [Video-Downloader](videodownloader/DOCS.md) | YouTube- und Online-Videos in wählbarer Qualität herunterladen, mit Mediathek. |
+| [Browser](browser/DOCS.md) | Google Chrome in der Home-Assistant-Seitenleiste (nur amd64). |
 
-Beide werden auf GitHub gebaut; Home Assistant lädt nur die fertigen Images.
+Alle werden auf GitHub gebaut; Home Assistant lädt nur die fertigen Images.
 
 ## Über das Internet
 

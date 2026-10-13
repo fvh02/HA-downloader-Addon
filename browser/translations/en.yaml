@@ -1,0 +1,10 @@
+configuration:
+  start_url:
+    name: Start page
+    description: Page Chrome opens on start.
+  resolution:
+    name: Screen size
+    description: Initial size of the browser window. It adapts to your device automatically when opened.
+  download_dir:
+    name: Download folder
+    description: Where Chrome saves downloads (e.g. /media/downloads/browser).
