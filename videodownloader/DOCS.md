@@ -33,6 +33,32 @@ Speicherplatz noch frei ist.
   (Option `access_code`), einmal pro Gerät. Ohne gesetzten Code ist der Zugriff aus dem
   Internet gesperrt. Anleitung: [Über das Internet erreichbar machen](https://github.com/fvh02/HA-downloader-Addon/blob/HEAD/TUNNEL.md)
 
+## YouTube-Konto (Premium)
+
+Mit deinem YouTube-Konto lädt der Downloader auch Inhalte, die eine Anmeldung brauchen:
+**Premium-Qualität** (z. B. „1080p Premium“ mit höherer Bitrate), Premium-Inhalte,
+Kanalmitgliedschaften und altersbeschränkte Videos.
+
+YouTube erlaubt Programmen keine Anmeldung mit E-Mail und Passwort mehr. Deshalb nutzt der
+Downloader die **Anmelde-Cookies** deines Browsers:
+
+1. Am PC ein **privates Fenster** öffnen (Chrome: Inkognito, Firefox: Privates Fenster) und auf
+   youtube.com mit deinem Premium-Konto anmelden.
+2. Mit der Erweiterung **„Get cookies.txt LOCALLY“** (Chrome/Edge) bzw. **„cookies.txt“**
+   (Firefox) die Cookies von youtube.com als `cookies.txt` speichern. Die Erweiterung muss im
+   privaten Fenster erlaubt sein.
+3. Das private Fenster **schließen, ohne dich abzumelden** (Abmelden macht die Cookies ungültig).
+4. In Home Assistant den Video-Downloader öffnen und unten bei **YouTube-Konto** die Datei hochladen.
+   Danach steht dort „✓ verbunden“.
+
+Hochladen, Prüfen und Trennen geht nur über Home Assistant, nicht im Heimnetz oder über das
+Internet. Gespeichert werden nur die Cookies von youtube.com und google.com, im privaten Speicher
+des Add-ons; angezeigt wird nur der Status. Meldet „Prüfen“ irgendwann, dass YouTube die Anmeldung
+nicht mehr annimmt, einfach neu exportieren und hochladen.
+
+Hinweis: Lade nur Videos herunter, die du privat nutzen darfst. YouTube untersagt das Herunterladen
+außerhalb der App in seinen Nutzungsbedingungen – die Nutzung geschieht auf eigene Verantwortung.
+
 ## Konfiguration
 
 | Option          | Beschreibung                                                                 |

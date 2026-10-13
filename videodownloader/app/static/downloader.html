@@ -137,6 +137,20 @@
       :root[data-design="terminal"] #list li { grid-template-columns: 6ch 1fr auto 24px; }
       :root[data-design="terminal"] #list li .qcell { grid-column: auto; grid-row: auto; display: none; }
     }
+
+    .yt { margin: 22px auto 0; max-width: 640px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 14px 18px; font-size: .9rem; }
+    .yt .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .yt .grow { flex: 1; min-width: 180px; }
+    .yt b { font-weight: 700; }
+    .yt .sub { color: var(--muted); font-size: .82rem; }
+    .yt .ok { color: var(--ok); } .yt .bad { color: var(--danger); }
+    .yt button, .yt label.up { border: 1px solid var(--border); background: var(--surface-2); color: inherit; border-radius: 999px; padding: 6px 14px; font: inherit; cursor: pointer; }
+    .yt label.up { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 650; }
+    .yt input[type=file] { display: none; }
+    .yt ol { margin: 10px 0 4px; padding-left: 20px; color: var(--muted); }
+    .yt ol li { margin: 4px 0; }
+    .yt ol b { color: var(--text, inherit); }
+    .yt details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -165,6 +179,7 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
       <div class="message" id="message"></div>
     </div>
     <div class="footer" id="footer"></div>
+    <section class="yt" id="yt" hidden></section>
   </main>
 
   <script src="static/base.js"></script>
@@ -320,6 +335,46 @@ Link zu einem Video einfügen und Enter drücken. Mit -f wählst du die Qualitä
 
     refresh();
     setInterval(refresh, 1000);
+  
+    // ---------- YouTube account (cookies) ----------
+    const fmtDate = ts => new Date(ts * 1000).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+    async function ytCall(method, body) {
+      const res = await fetch("api/youtube" + (method === "CHECK" ? "/check" : ""), { method: method === "CHECK" ? "POST" : method, body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Fehler " + res.status);
+      return data;
+    }
+    function ytRender(d, note = "") {
+      const box = $("yt"); box.hidden = false;
+      const state = !d.connected ? `<span class="sub">nicht verbunden – nur öffentliche Videos</span>`
+        : d.ok === false ? `<span class="bad">⚠ ${UI.esc(d.message)}</span>`
+        : `<span class="ok">✓ verbunden${d.ok ? " – Premium-Qualität und Premium-Inhalte" : ""}</span>`;
+      const meta = d.connected ? `<div class="sub">seit ${fmtDate(d.since)}${d.expires ? ` · Anmeldung gültig bis ${fmtDate(d.expires)}` : ""}${d.checked ? ` · geprüft ${new Date(d.checked * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}` : ""}</div>` : "";
+      const actions = !d.can_edit ? `<span class="sub">Verbinden und Trennen geht in Home Assistant (Seitenleiste → Videos).</span>`
+        : d.connected ? `<button id="ytCheck">Prüfen</button><label class="up">Neu hochladen<input type="file" id="ytFile" accept=".txt,text/plain"></label><button id="ytDel">Trennen</button>`
+        : `<label class="up">cookies.txt hochladen<input type="file" id="ytFile" accept=".txt,text/plain"></label>`;
+      box.innerHTML = `<div class="row"><div class="grow"><b>▶ YouTube-Konto</b> ${state}${meta}</div>${actions}</div>
+        ${note ? `<div class="sub" style="margin-top:8px">${UI.esc(note)}</div>` : ""}
+        ${d.can_edit ? `<details ${d.connected ? "" : "open"}><summary>So verbindest du dein YouTube-Premium-Konto</summary><ol>
+          <li>Am PC ein <b>privates Fenster</b> öffnen (Chrome: Inkognito, Firefox: Privates Fenster) und auf <b>youtube.com</b> mit deinem Premium-Konto anmelden.</li>
+          <li>Mit der Browser-Erweiterung <b>„Get cookies.txt LOCALLY“</b> (Chrome/Edge) bzw. <b>„cookies.txt“</b> (Firefox) die Cookies von youtube.com als <b>cookies.txt</b> speichern. Die Erweiterung muss im privaten Fenster erlaubt sein.</li>
+          <li>Das private Fenster <b>schließen, ohne dich abzumelden</b> – sonst wird die Anmeldung ungültig.</li>
+          <li>Die Datei hier hochladen. Sie bleibt nur auf deinem Home Assistant und wird nie wieder angezeigt.</li>
+        </ol><div class="sub">YouTube erlaubt Programmen keine Anmeldung mit Passwort mehr, deshalb dieser Weg. Lade nur Videos herunter, die du für dich privat nutzen darfst.</div></details>` : ""}`;
+      const file = $("ytFile");
+      if (file) file.onchange = async () => {
+        if (!file.files[0]) return;
+        const form = new FormData(); form.append("file", file.files[0]);
+        ytRender(d, "Wird hochgeladen und bei YouTube geprüft …");
+        try { const r = await ytCall("POST", form); ytRender(r, r.ok ? "Fertig – neue Downloads nutzen dein Konto." : ""); }
+        catch (e) { ytRender(d, e.message); }
+      };
+      const check = $("ytCheck");
+      if (check) check.onclick = async () => { ytRender(d, "Prüfe bei YouTube …"); try { ytRender(await ytCall("CHECK")); } catch (e) { ytRender(d, e.message); } };
+      const del = $("ytDel");
+      if (del) del.onclick = async () => { if (!confirm("YouTube-Konto trennen? Die gespeicherte Anmeldung wird gelöscht.")) return; try { ytRender(await ytCall("DELETE")); } catch (e) { ytRender(d, e.message); } };
+    }
+    fetch("api/youtube").then(r => r.json()).then(d => ytRender(d)).catch(() => {});
   </script>
 </body>
 </html>
